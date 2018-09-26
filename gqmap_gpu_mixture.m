@@ -8,15 +8,15 @@ I1=gpuArray(I1); I2=gpuArray(I2);K2 = K^2; sqrt2=sqrt(2); corr_tor=0.999;
 [XI,XJ] = meshgrid(X); [WI,WJ] = meshgrid(W);
 WIWJ = WI.*WJ; XIXJ = XI.*XJ; XI2aXJ2 = XI.^2 + XJ.^2;XI2mXJ2 = XI.^2 - XJ.^2;%XI2 = 2*XI.^2; XJ2 = 2*XJ.^2; 
 [M,N] = size(I1); rg=1; M_=(1+rg):(M-rg); N_=(1+rg):(N-rg);
-rfc=2;	rfc2=2^rfc;	I2_cont = interp2(I2,rfc,'cubic');	[MM, NN] = size(I2_cont);
+rfc=6;	rfc2=2^rfc;	I2_cont = interp2(I2,rfc,'cubic');	[MM, NN] = size(I2_cont);
 [ns,ms] = meshgrid(gpuArray(1:N),gpuArray(1:M));
 
 %initialize gpu data
 alpha = rand(L,1,'gpuArray'); alpha = reshape(alpha./sum(alpha),1,1,L);
 muu = minu+rand(M,N,L,'gpuArray')*(maxu-minu);
 muv = minv+rand(M,N,L,'gpuArray')*(maxv-minv);
-sigmau = rand(M,N,L,'gpuArray') + (maxu-minu);% make sure it's a large initialization
-sigmav = rand(M,N,L,'gpuArray') + (maxv-minv);
+sigmau = rand(M,N,L,'gpuArray') + 3;%(maxu-minu);% make sure it's a large initialization
+sigmav = rand(M,N,L,'gpuArray') + 3;%(maxv-minv);
 pn = zeros(M,N,L,'gpuArray');
 rou = zeros(M,N,L,2,2,'gpuArray');
 %for verbose info
@@ -24,16 +24,16 @@ rou = zeros(M,N,L,2,2,'gpuArray');
 Energy = zeros(its,1,'gpuArray');%logP = zeros(its,1,'gpuArray');
 it = 1;tor = 1e-4;tic;
 while 1
-    step = 0.005/(1+it/5000);
+    step = 0.01/(1+it/5000);
     %dim_1:(M)--dim_2:(N)--dim_3:L(mixture components)
-    [dmuu,dmuv,dsigmau,dsigmav,dpn,Nenergy] = arrayfun(@node_grad_spectral,repmat(alpha,M,N,1),muu,muv,sigmau,sigmav,pn,ms,ns);
+    [dan,dmuu,dmuv,dsigmau,dsigmav,dpn,Nenergy] = arrayfun(@node_grad_spectral,repmat(alpha,M,N,1),muu,muv,sigmau,sigmav,pn,ms,ns);
     %dim_1:(M)--dim_2:(N)--dim_3:L(mixture components)--dim_4:(vertical/horizontal edges)--dim_5:(u/v edges)
-    [dmu1,dmu2,dsigma1,dsigma2,drou,Eenergy] = arrayfun(@edge_grad_spectral,repmat(alpha,M,N,1,2,2),cat(5,repmat(muu,[1 1 1 2]),repmat(muv,[1 1 1 2])),...
+    [dae,dmu1,dmu2,dsigma1,dsigma2,drou,Eenergy] = arrayfun(@edge_grad_spectral,repmat(alpha,M,N,1,2,2),cat(5,repmat(muu,[1 1 1 2]),repmat(muv,[1 1 1 2])),...
         cat(5,cat(4,circshift(muu,-1), circshift(muu,-1,2)),cat(4,circshift(muv,-1), circshift(muv,-1,2))),...
         cat(5,repmat(sigmau,[1 1 1 2]),repmat(sigmav,[1 1 1 2])),...
         cat(5,cat(4,circshift(sigmau,-1), circshift(sigmau,-1,2)),cat(4,circshift(sigmav,-1), circshift(sigmav,-1,2))),rou);
     
-    dalpha = sum(sum(Nenergy(M_,N_,:),1),2) + sum(sum(sum(sum(Eenergy(M_,N_,:,:,:),1),2),4),5); 
+    dalpha = sum(sum(dan(M_,N_,:),1),2) + sum(sum(sum(sum(dae(M_,N_,:,:,:),1),2),4),5); 
     dmuu = dmuu + sum(dmu1(:,:,:,:,1),4) + circshift(dmu2(:,:,:,1,1),1) + circshift(dmu2(:,:,:,2,1),1,2);
     dmuv = dmuv + sum(dmu1(:,:,:,:,2),4) + circshift(dmu2(:,:,:,1,2),1) + circshift(dmu2(:,:,:,2,2),1,2);
     dsigmau = dsigmau + sum(dsigma1(:,:,:,:,1),4) + circshift(dsigma2(:,:,:,1,1),1) + circshift(dsigma2(:,:,:,2,1),1,2);
@@ -45,11 +45,12 @@ while 1
     rou(M_,N_,:,:,:) = min(max(rou(M_,N_,:,:,:) + drou(M_,N_,:,:,:) * step, -corr_tor), corr_tor);
     pn(M_,N_,:) = min(max(pn(M_,N_,:) + dpn(M_,N_,:) * step, -corr_tor), corr_tor);
     
-    Energy(it) = sum(dalpha);
-    alpha = alpha + dalpha./Energy(it) * step;
+    Energy(it) = sum(Nenergy(:))+sum(Eenergy(:));
+    if it>500,alpha = projsplx(alpha + dalpha./sum(abs(dalpha)) * step);end
     % logP(it) = sum(sum(sum(logPN(M_,N_,:)))) + sum(sum(sum(sum(sum(logPE(M_,N_,:,:,:))))));
-    ptdmu=abs(dmuu(M_,N_,:)); ptdsigma=abs(dsigmau(M_,N_,:));
-    fprintf('[%3d], \x0394(mu) = %f, \x0394(sigma) = %f, Energy=%f', it, mean(ptdmu(:)), mean(ptdsigma(:)), Energy(it));
+    ptdmu=abs(dmuu(M_,N_,:)); ptdsigma=abs(dsigmau(M_,N_,:)); 
+    ptdmu = mean(ptdmu(:)); ptdsigma=mean(ptdsigma(:));
+    fprintf('[%3d], \x0394(mu) = %e, \x0394(sigma) = %e, Energy=%e \n', it, ptdmu, ptdsigma, Energy(it));
     % aepe = mean(mean(sqrt((GRDT(M_,N_,1)-muu(M_,N_)).^2+(GRDT(M_,N_,2)-muv(M_,N_)).^2)));AEPE(it)=aepe;
     % if aepe < best_aepe, bestat = it; best_aepe = aepe;end
     % if mod(it,200)==0||it==1
@@ -83,7 +84,7 @@ toc;
 %     do2 = do2/o2/pi;
 %     dp =  dp/(1-p^2)/pi;
 % end
-    function [du1,du2,do1,do2,dp,nener] = node_grad_spectral(a,u1,u2,o1,o2,p,m,n)
+    function [da,du1,du2,do1,do2,dp,nener] = node_grad_spectral(a,u1,u2,o1,o2,p,m,n)
         du1 = 0; du2 = 0; do1 = 0; do2 = 0; dp = 0; nener = 0;
         %if (m<=rg||m>M-rg||n<=rg||n>N-rg),return;end
         s = (sqrt(1+p)+sqrt(1-p))/2;
@@ -108,7 +109,8 @@ toc;
         do1 = a*do1/pi/o1;
         do2 = a*do2/pi/o2;
         dp = a*dp/pi/pr;
-        nener = nener/pi;
+        da = nener/pi;
+        nener = a*da;
         % logP = node_pot(u1,u2,m,n);
     end
 % function [du1,du2,do1,do2,dp] = edge_grad(u1,u2,o1,o2,p)
@@ -128,7 +130,7 @@ toc;
 %     do2 = do2/o2/pi;
 %     dp = dp/(1-p^2)/pi;
 % end
-    function [du1,du2,do1,do2,dp,eener] = edge_grad_spectral(a,u1,u2,o1,o2,p)
+    function [da,du1,du2,do1,do2,dp,eener] = edge_grad_spectral(a,u1,u2,o1,o2,p)
         du1 = 0; du2 = 0; do1 = 0; do2 = 0; dp = 0; eener=0;
         s = (sqrt(1+p)+sqrt(1-p))/2;
         t = (sqrt(1+p)-sqrt(1-p))/2;
@@ -152,7 +154,8 @@ toc;
         do1 = a*do1/pi/o1;
         do2 = a*do2/pi/o2;
         dp = a*dp/pi/pr;
-        eener = eener/pi;
+        da = eener/pi;
+        eener = a*da;
         % logP = edge_pot(u1,u2);
     end
 

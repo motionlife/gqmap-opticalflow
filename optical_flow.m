@@ -1,6 +1,6 @@
 clear;
 %read images from dataset and convert greyscale
-testdata = {'Urban2'};%{'rubberwhale','Urban2','Urban3','Grove3','Venus','Dimetrodon','Grove2','Hydrangea'};%,{'Hydrangea'};%
+testdata = {'rubberwhale'};%{'rubberwhale','Urban2','Urban3','Grove3','Venus','Dimetrodon','Grove2','Hydrangea'};%,{'Hydrangea'};%
 scale = 1;
 for ti=1:numel(testdata)
     time=datestr(now, 'yyyymmddHHMMSS');
@@ -13,7 +13,7 @@ for ti=1:numel(testdata)
     gdt_img = imresize(gdt_img,scale);
 
     options.K = 11;
-    options.its =1000;
+    options.its =5000;
     options.epsn = 0.001^2;
     options.lambdas = 5;
     options.lambdad = 1;
