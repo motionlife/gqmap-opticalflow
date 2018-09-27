@@ -25,7 +25,7 @@ while 1
         cat(4,repmat(sigmau,[1 1 2]),repmat(sigmav,[1 1 2])),...
         cat(4,cat(3,circshift(sigmau,-1), circshift(sigmau,-1,2)),cat(3,circshift(sigmav,-1), circshift(sigmav,-1,2))),rou);
    
-    step = 0.001/(1+it/5000);%0.07/(1+it/5000);
+    step = 0.005/(1+it/5000);%0.07/(1+it/5000);
     dmuu = dmuu + sum(dmu1(:,:,:,1),3) + circshift(dmu2(:,:,1,1),1) + circshift(dmu2(:,:,2,1),1,2);
     dmuv = dmuv + sum(dmu1(:,:,:,2),3) + circshift(dmu2(:,:,1,2),1) + circshift(dmu2(:,:,2,2),1,2);
     dsigmau = dsigmau + sum(dsigma1(:,:,:,1),3) + circshift(dsigma2(:,:,1,1),1) + circshift(dsigma2(:,:,2,1),1,2);
@@ -43,8 +43,8 @@ while 1
     if aepe < best_aepe, bestat = it; best_aepe = aepe;end
     if mod(it,500)==0||it==1
         flc = gather(flowToColor(cat(3, muu_full,muv_full)));
-%         imshow(flc);
-        imwrite(flc,[options.dir,'/',num2str(it),'.png']);
+        imshow(flc);
+        %imwrite(flc,[options.dir,'/',num2str(it),'.png']);
     end
     ptdmu=mean(mean(abs(dmuu(M_,N_)))); ptdsigma=mean(mean(abs(dsigmau(M_,N_))));
     fprintf('[%3d], \x0394(mu) = %d, \x0394(sigma) = %d, AEPE=%d, Energy=%d, best at#%d\n', it, ptdmu, ptdsigma, aepe,Energy(it), bestat);
@@ -92,8 +92,8 @@ toc;
         do2 = do2/o2/pi;
         dp = dp/(1-p^2)/pi;
     end
-    function [du1,du2,do1,do2,dp,nener] = node_grad_spectral(u1,u2,o1,o2,p,m,n)
-        du1 = 0; du2 = 0; do1 = 0; do2 = 0; dp = 0;nener=0;
+    function [du1,du2,do1,do2,dp,Ei] = node_grad_spectral(u1,u2,o1,o2,p,m,n)
+        du1 = 0; du2 = 0; do1 = 0; do2 = 0; dp = 0;Ei=0;
 %       if (m<=rg||m>M-rg||n<=rg||n>N-rg),return;end
         bottom = 4*m;
         top = bottom - 3;
@@ -118,13 +118,14 @@ toc;
             du2 = du2 + fval*(zj - p*zi);
             do1 = do1 + fval*(XI2aXJ2(k) - 1 + XI2mXJ2(k)/sqrtpr);
             do2 = do2 + fval*(XI2aXJ2(k) - 1 - XI2mXJ2(k)/sqrtpr);
-            nener = nener + fval;
+            Ei = Ei + fval;
         end
         du1 = du1*o1pr/pi;
         du2 = du2*o2pr/pi;
         do1 = do1/pi/o1;
         do2 = do2/pi/o2;
         dp =  dp/pi/pr;
+        Ei = Ei/pi;
     end
     function [du1,du2,do1,do2,dp] = edge_grad(u1,u2,o1,o2,p)
         du1 = 0; du2 = 0; do1 = 0; do2 = 0; dp = 0;
@@ -143,8 +144,8 @@ toc;
         do2 = do2/o2/pi;
         dp = dp/(1-p^2)/pi;
     end
-    function [du1,du2,do1,do2,dp,eener] = edge_grad_spectral(u1,u2,o1,o2,p)
-        du1 = 0; du2 = 0; do1 = 0; do2 = 0; dp = 0;eener=0;
+    function [du1,du2,do1,do2,dp,Ei] = edge_grad_spectral(u1,u2,o1,o2,p)
+        du1 = 0; du2 = 0; do1 = 0; do2 = 0; dp = 0; Ei=0;
         s = (sqrt(1+p)+sqrt(1-p))/2;
         t = (sqrt(1+p)-sqrt(1-p))/2;
         pr = 1 - p^2; sqrtpr = sqrt(pr);
@@ -157,13 +158,14 @@ toc;
             du2 = du2 + fval*(zj - p*zi);
             do1 = do1 + fval*(XI2aXJ2(k) - 1 + XI2mXJ2(k)/sqrtpr);
             do2 = do2 + fval*(XI2aXJ2(k) - 1 - XI2mXJ2(k)/sqrtpr);
-            eener = eener+fval;
+            Ei = Ei+fval;
         end
         du1 = du1*o1pr/pi;
         du2 = du2*o2pr/pi;
         do1 = do1/pi/o1;
         do2 = do2/pi/o2;
         dp = dp/pi/pr;
+        Ei = Ei/pi;
     end
 
 mu=gather(cat(3,muu,muv));
