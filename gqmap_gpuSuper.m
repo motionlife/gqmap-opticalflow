@@ -6,10 +6,10 @@ I1=gpuArray(I1); I2=gpuArray(I2);K2 = K^2; sqrt2=sqrt(2); corr_tor=0.999;
 [X, W] = GaussHermite_2(K); X = gpuArray(X);  W = gpuArray(W);
 [XI,XJ] = meshgrid(X); [WI,WJ] = meshgrid(W);
 WIWJ = WI.*WJ; XIXJ = XI.*XJ; XI2 = 2*XI.^2; XJ2 = 2*XJ.^2; XI2aXJ2 = XI.^2 + XJ.^2;XI2mXJ2 = XI.^2 - XJ.^2;
-[Mo,No] = size(I1); M=Mo/4; N = No/4; border=1; M_=(1+border):(M-border); N_=(1+border):(N-border); 
+[Mo,No] = size(I1); M = Mo/4; N = No/4; border=1; M_= (1+border):(M-border); N_ = (1+border):(N-border); 
 rfc=6;	rfc2=2^rfc;	I2_cont = interp2(I2,rfc,'cubic');	[MM, NN] = size(I2_cont);
 [ns,ms] = meshgrid(gpuArray(1:N),gpuArray(1:M));
-it = 1; tor = 1e-4;bestat=1;best_aepe=Inf; AEPE=ones(its,1,'gpuArray')*17;Energy = zeros(its,1,'gpuArray');
+bestat=1;best_aepe=Inf; AEPE=ones(its,1,'gpuArray')*17;Energy = zeros(its,1,'gpuArray');
 muu = minu+rand(M,N,'gpuArray')*(maxu-minu);
 muv = minv+rand(M,N,'gpuArray')*(maxv-minv);
 sigmau = rand(M,N,'gpuArray') + (maxu-minu);% make sure it's a large initialization
@@ -17,7 +17,7 @@ sigmav = rand(M,N,'gpuArray') + (maxv-minv);
 pn = zeros(M,N,'gpuArray');
 rou = zeros(M,N,2,2,'gpuArray');
 % reset = 0;
-tic;
+it = 1; tor = 1e-4; tic;
 while 1
     [dmuu,dmuv,dsigmau,dsigmav,dpn,Nenergy] = arrayfun(@node_grad_spectral,muu,muv,sigmau,sigmav,pn,ms,ns);
     [dmu1,dmu2,dsigma1,dsigma2,drou,Eenergy] = arrayfun(@edge_grad_spectral, cat(4,repmat(muu,[1 1 2]),repmat(muv,[1 1 2])),...
@@ -25,26 +25,26 @@ while 1
         cat(4,repmat(sigmau,[1 1 2]),repmat(sigmav,[1 1 2])),...
         cat(4,cat(3,circshift(sigmau,-1), circshift(sigmau,-1,2)),cat(3,circshift(sigmav,-1), circshift(sigmav,-1,2))),rou);
    
-    step = 0.005/(1+it/5000);%0.07/(1+it/5000);
+    step = 0.0015/(1+it/5000);%0.07/(1+it/5000);
     dmuu = dmuu + sum(dmu1(:,:,:,1),3) + circshift(dmu2(:,:,1,1),1) + circshift(dmu2(:,:,2,1),1,2);
     dmuv = dmuv + sum(dmu1(:,:,:,2),3) + circshift(dmu2(:,:,1,2),1) + circshift(dmu2(:,:,2,2),1,2);
     dsigmau = dsigmau + sum(dsigma1(:,:,:,1),3) + circshift(dsigma2(:,:,1,1),1) + circshift(dsigma2(:,:,2,1),1,2);
     dsigmav = dsigmav + sum(dsigma1(:,:,:,2),3) + circshift(dsigma2(:,:,1,2),1) + circshift(dsigma2(:,:,2,2),1,2);
     muu(M_,N_) = min(max(muu(M_,N_) + dmuu(M_,N_) * step, minu), maxu);
     muv(M_,N_) = min(max(muv(M_,N_) + dmuv(M_,N_) * step, minv), maxv);
-    sigmau(M_,N_) = min(max(sigmau(M_,N_) + dsigmau(M_,N_) * step*0.7,0.01),25);
-    sigmav(M_,N_) = min(max(sigmav(M_,N_) + dsigmav(M_,N_) * step*0.7,0.01),25);
+    sigmau(M_,N_) = min(max(sigmau(M_,N_) + dsigmau(M_,N_) *step*0.8,0.01),25);
+    sigmav(M_,N_) = min(max(sigmav(M_,N_) + dsigmav(M_,N_) *step*0.8,0.01),25);
     rou(M_,N_,:,:) = max(min(rou(M_,N_,:,:) + drou(M_,N_,:,:) * step, corr_tor), -corr_tor);
     pn(M_,N_) = max(min(pn(M_,N_) + dpn(M_,N_) * step, corr_tor), -corr_tor);
     muu_full = repelem(muu,4,4); muv_full = repelem(muv,4,4);
-    err = sqrt((GRDT(:,:,1)- muu_full).^2+(GRDT(:,:,2)-muv_full).^2);
+    err = sqrt((GRDT(:,:,1)-muu_full).^2+(GRDT(:,:,2)-muv_full).^2);
     aepe = mean(mean(err(5:end-4,5:end-4,:)));AEPE(it)=aepe;
     Energy(it) = sum(sum(Nenergy(M_,N_))) + sum(sum(sum(sum(Eenergy(M_,N_,:,:)))));
     if aepe < best_aepe, bestat = it; best_aepe = aepe;end
     if mod(it,500)==0||it==1
-        flc = gather(flowToColor(cat(3, muu_full,muv_full)));
-        imshow(flc);
-        %imwrite(flc,[options.dir,'/',num2str(it),'.png']);
+        flc = gather(flowToColor(cat(3, muu_full(5:end-4,5:end-4,:),muv_full(5:end-4,5:end-4,:))));
+        %imshow(flc);
+        imwrite(flc,[options.dir,'/',num2str(it),'.png']);
     end
     ptdmu=mean(mean(abs(dmuu(M_,N_)))); ptdsigma=mean(mean(abs(dsigmau(M_,N_))));
     fprintf('[%3d], \x0394(mu) = %d, \x0394(sigma) = %d, AEPE=%d, Energy=%d, best at#%d\n', it, ptdmu, ptdsigma, aepe,Energy(it), bestat);
@@ -158,7 +158,7 @@ toc;
             du2 = du2 + fval*(zj - p*zi);
             do1 = do1 + fval*(XI2aXJ2(k) - 1 + XI2mXJ2(k)/sqrtpr);
             do2 = do2 + fval*(XI2aXJ2(k) - 1 - XI2mXJ2(k)/sqrtpr);
-            Ei = Ei+fval;
+            Ei = Ei + fval;
         end
         du1 = du1*o1pr/pi;
         du2 = du2*o2pr/pi;

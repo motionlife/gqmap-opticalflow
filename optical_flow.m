@@ -20,7 +20,7 @@ for ti=1:numel(testdata)
     options.dir = time;
 %     mkdir(time);
     % [mu, sigma, rou, AEPE,Energy] = gqmap_gpuV2(options,img_1,img_2,trueFlow);
-    [mu, sigma, rou, Energy] = gqmap_gpu_mixture(options,img_1,img_2);
+    [mu, sigma, rou, AEPE, Energy] = gqmap_gpu_mixture(options,img_1,img_2);
 %     save([options.dir,'/',testdata{ti},'.mat'],'options','AEPE','trueFlow','unknownIdx','mu');
 %     fig = figure;
 %     fig.Position =  [1 41 1920 963];

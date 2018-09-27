@@ -1,4 +1,4 @@
-function [mu, sigma, rou, Energy, AEPE] = gqmap_gpu_mixture(options,I1,I2,GRDT)
+function [mu, sigma, rou, AEPE, Energy] = gqmap_gpu_mixture(options,I1,I2,GRDT)
 %GQMAP perform MAP inference using Gaussian Quadruatre with gradient ascent method
 its = options.its;  K = options.K;  L=3;
 epsn = options.epsn;    lambdad = options.lambdad;  lambdas = options.lambdas;
