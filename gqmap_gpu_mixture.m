@@ -15,8 +15,8 @@ rfc=6;	rfc2=2^rfc;	I2_cont = interp2(I2,rfc,'cubic');	[MM, NN] = size(I2_cont);
 alpha = rand(L,1,'gpuArray'); alpha = reshape(alpha./sum(alpha),1,1,L);
 muu = minu+rand(M,N,L,'gpuArray')*(maxu-minu);
 muv = minv+rand(M,N,L,'gpuArray')*(maxv-minv);
-sigmau = rand(M,N,L,'gpuArray') + 3;%(maxu-minu);% make sure it's a large initialization
-sigmav = rand(M,N,L,'gpuArray') + 3;%(maxv-minv);
+sigmau = rand(M,N,L,'gpuArray') + (maxu-minu);% make sure it's a large initialization
+sigmav = rand(M,N,L,'gpuArray') + (maxv-minv);
 pn = zeros(M,N,L,'gpuArray');
 rou = zeros(M,N,L,2,2,'gpuArray');
 %for verbose info and profiling

@@ -1,6 +1,6 @@
-function [mu, sigma, alpha, AEPE,Energy] = gqmap_gpuSuper_mix(options,I1,I2,GRDT)
+function [mu, sigma, alpha, AEPE,Energy] = gqmap_gpuSuper_mix_entropy(options,I1,I2,GRDT)
 %GQMAP perform MAP inference using Gaussian Quadruatre with gradient ascent method
-its = options.its; K = options.K; L=3;
+its = options.its; K = options.K; L=3;T=100; drate = 1-1E-3;
 epsn = options.epsn; lambdad = options.lambdad; lambdas=options.lambdas;
 minu=options.minu;maxu=options.maxu;minv=options.minv;maxv=options.maxv;
 I1=gpuArray(I1); I2=gpuArray(I2);K2 = K^2; sqrt2=sqrt(2); corr_tor=0.999;
@@ -61,7 +61,7 @@ while 1
         % logP(it) = =>How to profile logP??? 
         fprintf('[%3d], AEPE=%e, best at# %e \n', it,  aepe, bestat);
     end
-    it = it + 1;
+    it = it + 1; T = T*drate;
     if it > its || ptdmu < tor, break; end
 end
 toc;
@@ -100,6 +100,11 @@ toc;
         dp = a*dp/pi/pr;
         da = Ei/pi;
         Ei = a*da;
+        %Considering entropy with Temperature T--------------------------------
+        dp = dp - a*p/(1-p^2)*T;
+        do1 = do1 + a/o1*T;
+        do2 = do2 + a/o2*T;
+
     end
     function [da,du1,du2,do1,do2,dp,Ei] = edge_grad_spectral(a,u1,u2,o1,o2,p)
         du1 = 0; du2 = 0; do1 = 0; do2 = 0; dp = 0; Ei=0;
@@ -124,6 +129,10 @@ toc;
         dp = a*dp/pi/pr;
         da = Ei/pi;
         Ei = a*da;
+        %Considering entropy with Temperature T--------------------------------
+        dp = dp - a*p/(1-p^2)*T;
+        do1 = do1 + a/o1*T;
+        do2 = do2 + a/o2*T;
     end
 
 mu=gather(cat(3,muu,muv));
