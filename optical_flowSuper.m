@@ -1,6 +1,6 @@
 clear;
 %read images from dataset and convert greyscale
-testdata ={'rubberwhale','Urban2','Urban3','Grove3','Venus','Dimetrodon','Grove2','Hydrangea'};%,{'Hydrangea'};%
+testdata ={'Hydrangea'};%{'rubberwhale','Grove3','Venus','Dimetrodon','Grove2','Hydrangea','Urban2','Urban3'};%,{'Hydrangea'};%
 scale = 1; preprocessed=false;
 for ti=1:numel(testdata)
     if ~preprocessed
@@ -15,8 +15,8 @@ for ti=1:numel(testdata)
         flowToColor(readFlowFile(['middlebury/',testdata{ti},'/flow10.flo']));
     gdt_img = imresize(gdt_img,scale);
 
-    options.K = 11;
-    options.its = 20000;
+    options.K = 9;
+    options.its = 1000;
     options.epsn = 0.001^2;
     options.lambdas = 5;
     options.lambdad = 1;

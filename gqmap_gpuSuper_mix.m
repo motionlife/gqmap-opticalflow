@@ -61,8 +61,6 @@ while 1
         % logP(it) = =>How to profile logP??? 
         fprintf('[%3d], AEPE=%e, best at# %e \n', it,  aepe, bestat);
     end
-%     ptdmu=mean(mean(abs(dmuu(M_,N_)))); ptdsigma=mean(mean(abs(dsigmau(M_,N_))));
-%     fprintf('[%3d], \x0394(mu) = %d, \x0394(sigma) = %d, AEPE=%d, Energy=%d, best at#%d\n', it, ptdmu, ptdsigma, aepe,Energy(it), bestat);
     it = it + 1;
     if it > its || ptdmu < tor, break; end
 end
