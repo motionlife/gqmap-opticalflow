@@ -1,6 +1,6 @@
 clear;
 %read images from dataset and convert greyscale
-testdata = {'rubberwhale'};%{'rubberwhale','Urban2','Urban3','Grove3','Venus','Dimetrodon','Grove2','Hydrangea'};%,{'Hydrangea'};%
+testdata = {'RubberWhale'};%{'RubberWhale','Urban2','Urban3','Grove3','Venus','Dimetrodon','Grove2','Hydrangea'};%,{'Hydrangea'};%
 scale = 1;
 for ti=1:numel(testdata)
     time=datestr(now, 'yyyymmddHHMMSS');

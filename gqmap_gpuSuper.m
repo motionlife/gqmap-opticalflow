@@ -25,26 +25,26 @@ while 1
         cat(4,repmat(sigmau,[1 1 2]),repmat(sigmav,[1 1 2])),...
         cat(4,cat(3,circshift(sigmau,-1), circshift(sigmau,-1,2)),cat(3,circshift(sigmav,-1), circshift(sigmav,-1,2))),rou);
    
-    step = 0.001;%/(1+it/5000);%0.07/(1+it/5000);
+    step = 0.001/(1+it/4000);%0.07/(1+it/5000);
     dmuu = dmuu + sum(dmu1(:,:,:,1),3) + circshift(dmu2(:,:,1,1),1) + circshift(dmu2(:,:,2,1),1,2);
     dmuv = dmuv + sum(dmu1(:,:,:,2),3) + circshift(dmu2(:,:,1,2),1) + circshift(dmu2(:,:,2,2),1,2);
     dsigmau = dsigmau + sum(dsigma1(:,:,:,1),3) + circshift(dsigma2(:,:,1,1),1) + circshift(dsigma2(:,:,2,1),1,2);
     dsigmav = dsigmav + sum(dsigma1(:,:,:,2),3) + circshift(dsigma2(:,:,1,2),1) + circshift(dsigma2(:,:,2,2),1,2);
     muu(M_,N_) = min(max(muu(M_,N_) + dmuu(M_,N_) * step, minu), maxu);
     muv(M_,N_) = min(max(muv(M_,N_) + dmuv(M_,N_) * step, minv), maxv);
-    sigmau(M_,N_) = min(max(sigmau(M_,N_) + dsigmau(M_,N_) *step*0.7,0.01),25);
-    sigmav(M_,N_) = min(max(sigmav(M_,N_) + dsigmav(M_,N_) *step*0.7,0.01),25);
-    rou(M_,N_,:,:) = max(min(rou(M_,N_,:,:) + drou(M_,N_,:,:) * step, corr_tor), -corr_tor);
-    pn(M_,N_) = max(min(pn(M_,N_) + dpn(M_,N_) * step, corr_tor), -corr_tor);
+    sigmau(M_,N_) = min(max(sigmau(M_,N_) + dsigmau(M_,N_) *step,0.01),25);
+    sigmav(M_,N_) = min(max(sigmav(M_,N_) + dsigmav(M_,N_) *step,0.01),25);
+    rou(M_,N_,:,:) = min(max(rou(M_,N_,:,:) + drou(M_,N_,:,:) * step, -corr_tor), corr_tor);
+    pn(M_,N_) = min(max(pn(M_,N_) + dpn(M_,N_) * step, -corr_tor), corr_tor);
     muu_full = repelem(muu,4,4); muv_full = repelem(muv,4,4);
-    err = sqrt((GRDT(:,:,1)-muu_full).^2+(GRDT(:,:,2)-muv_full).^2);
+    err = sqrt((GRDT(:,:,1)-muu_full).^2 + (GRDT(:,:,2)-muv_full).^2);
     aepe = mean(mean(err(5:end-4,5:end-4)));AEPE(it)=aepe;
     Energy(it) = sum(sum(Nenergy(M_,N_))) + sum(sum(sum(sum(Eenergy(M_,N_,:,:)))));
     if aepe < best_aepe, bestat = it; best_aepe = aepe;end
     if mod(it,500)==0||it==1
-        flc = gather(flowToColor(cat(3, muu_full(5:end-4,5:end-4),muv_full(5:end-4,5:end-4))));
-        imshow(flc);
-%         imwrite(flc,[options.dir,'/',num2str(it),'.png']);
+        flc = gather(flowToColor(cat(3,muu_full(5:end-4,5:end-4),muv_full(5:end-4,5:end-4))));
+%         imshow(flc);
+        imwrite(flc,[options.dir,'/',num2str(it),'.png']);
     end
     ptdmu=mean(mean(abs(dmuu(M_,N_)))); ptdsigma=mean(mean(abs(dsigmau(M_,N_))));
     fprintf('[%3d], \x0394(mu) = %d, \x0394(sigma) = %d, AEPE=%d, Energy=%d, best at#%d\n', it, ptdmu, ptdsigma, aepe,Energy(it), bestat);
@@ -112,7 +112,7 @@ toc;
                     super = super + sqrt(epsn+(I1(i,j) - I2_cont(min(max(round((i+x2-1)*rfc2+1),1),MM),min(max(round((j+x1-1)*rfc2+1),1),NN)))^2);
                 end
             end
-            fval = -lambdad*super*WIWJ(k);
+            fval = -lambdad*WIWJ(k)*super;
             dp  = dp + fval*(p - p*XI2aXJ2(k) + 2*XIXJ(k));
             du1 = du1 + fval*(zi - p*zj);
             du2 = du2 + fval*(zj - p*zi);
