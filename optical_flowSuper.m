@@ -20,6 +20,9 @@ for ti=1:numel(testdata)
     options.epsn = 0.001^2;
     options.lambdas = 16;
     options.lambdad = 1;
+    options.temperature = 100;
+    options.L = 3;
+    options.drate=1-1E-3;
     options.dir = ['../Results_mix_entropy/',testdata{ti}];
 %     options.dir = ['../Results_mix_good/',testdata{ti}];
     mkdir(options.dir);
