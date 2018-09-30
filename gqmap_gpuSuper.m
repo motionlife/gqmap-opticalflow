@@ -2,12 +2,13 @@ function [mu, sigma, rou, AEPE,Energy] = gqmap_gpuSuper(options,I1,I2,GRDT)
 %GQMAP perform MAP inference using Gaussian Quadruatre with gradient ascent method
 its = options.its; K = options.K; epsn = options.epsn; lambdad = options.lambdad; lambdas=options.lambdas;
 minu=options.minu;maxu=options.maxu;minv=options.minv;maxv=options.maxv;
-I1=gpuArray(I1); I2=gpuArray(I2);K2 = K^2; sqrt2=sqrt(2); corr_tor=0.999;
+I1=gpuArray(I1);K2 = K^2; sqrt2=sqrt(2); corr_tor=0.999;% I2=gpuArray(I2);
 [X, W] = GaussHermite_2(K); X = gpuArray(X);  W = gpuArray(W);
 [XI,XJ] = meshgrid(X); [WI,WJ] = meshgrid(W);
 WIWJ = WI.*WJ; XIXJ = XI.*XJ; XI2 = 2*XI.^2; XJ2 = 2*XJ.^2; XI2aXJ2 = XI.^2 + XJ.^2;XI2mXJ2 = XI.^2 - XJ.^2;
-[Mo,No] = size(I1); M = Mo/4; N = No/4; border=1; M_= (1+border):(M-border); N_ = (1+border):(N-border); 
-rfc=6;	rfc2=2^rfc;	I2_cont = interp2(I2,rfc,'cubic');	[MM, NN] = size(I2_cont);
+[Mo,No] = size(I1); M = Mo/4; N = No/4; border=1; M_= (1+border):(M-border); N_ = (1+border):(N-border);
+VV = gpuArray(getVV(I2)); M2 = Mo+2;
+% rfc=6;	rfc2=2^rfc;	I2_cont = interp2(I2,rfc,'cubic');	[MM, NN] = size(I2_cont);
 [ns,ms] = meshgrid(gpuArray(1:N),gpuArray(1:M));
 bestat=1;best_aepe=Inf; AEPE=ones(its,1,'gpuArray')*17;Energy = zeros(its,1,'gpuArray');
 muu = minu+rand(M,N,'gpuArray')*(maxu-minu);
@@ -43,8 +44,8 @@ while 1
     if aepe < best_aepe, bestat = it; best_aepe = aepe;end
     if mod(it,500)==0||it==1
         flc = gather(flowToColor(cat(3,muu_full(5:end-4,5:end-4),muv_full(5:end-4,5:end-4))));
-%         imshow(flc);
-        imwrite(flc,[options.dir,'/',num2str(it),'.png']);
+        imshow(flc);
+%         imwrite(flc,[options.dir,'/',num2str(it),'.png']);
     end
     ptdmu=mean(mean(abs(dmuu(M_,N_)))); ptdsigma=mean(mean(abs(dsigmau(M_,N_))));
     fprintf('[%3d], \x0394(mu) = %d, \x0394(sigma) = %d, AEPE=%d, Energy=%d, best at#%d\n', it, ptdmu, ptdsigma, aepe,Energy(it), bestat);
@@ -109,10 +110,11 @@ toc;
             super = 0;
             for i=top:bottom
                 for j=left:right
-                    super = super + sqrt(epsn+(I1(i,j) - I2_cont(min(max(round((i+x2-1)*rfc2+1),1),MM),min(max(round((j+x1-1)*rfc2+1),1),NN)))^2);
+%                     super = super + sqrt(epsn+(I1(i,j) - I2_cont(min(max(round((i+x2-1)*rfc2+1),1),MM),min(max(round((j+x1-1)*rfc2+1),1),NN)))^2);
+                    super = super + node_pot(x1,x2,i,j);
                 end
             end
-            fval = -lambdad*WIWJ(k)*super;
+            fval = WIWJ(k)*super;
             dp  = dp + fval*(p - p*XI2aXJ2(k) + 2*XIXJ(k));
             du1 = du1 + fval*(zi - p*zj);
             du2 = du2 + fval*(zj - p*zi);
@@ -168,9 +170,51 @@ toc;
         Ei = Ei/pi;
     end
 
+    function npt = node_pot(x1,x2,i,j)
+        Xq = min(max(j + x1,1),No);
+        Yq = min(max(i + x2,1),Mo);
+        %Bicubic interpolation kernel version (from interp2)
+        if Xq <= 1.0, ix = 1;elseif Xq <= No-1, ix = floor(Xq);else, ix = No-1;end
+        if Yq <= 1.0, iy = 1;elseif Yq <= Mo-1, iy = floor(Yq);else, iy = Mo-1;end
+        so = Xq - ix;
+        to = Yq - iy;
+        ss = ((2.0 - so) * so - 1.0) * so;
+        iy1 = iy + M2 * (ix - 1);
+        iy2 = iy1 + M2;
+        iy3 = iy2 + M2;
+        iy4 = iy3 + M2;
+        Vq = ((VV(iy1) * ss * (((2.0 - to) * to - 1.0) * to) + VV(iy1+1) * ss * ((3.0 * to - 5.0) * to * to + 2.0)) + VV(iy1+2) * ss * (((4.0 - 3.0 * to) * to + 1.0) * to)) + VV(iy1+3) * ss * ((to - 1.0) * to * to);
+        ss = (3.0 * so - 5.0) * so * so + 2.0;
+        Vq = Vq + VV(iy2) * ss * (((2.0 - to) * to - 1.0) * to) + VV(iy2+1) * ss * ((3.0 * to - 5.0) * to * to + 2.0) + VV(iy2+2) * ss * (((4.0 - 3.0 * to) * to + 1.0) * to) + VV(iy2+3) * ss * ((to - 1.0) * to * to);
+        ss = ((4.0 - 3.0 * so) * so + 1.0) * so;
+        Vq = Vq + VV(iy3) * ss * (((2.0 - to) * to - 1.0) * to) + VV(iy3+1) * ss * ((3.0 * to - 5.0) * to * to + 2.0) + VV(iy3+2) * ss * (((4.0 - 3.0 * to) * to + 1.0) * to) + VV(iy3+3) * ss * ((to - 1.0) * to * to);
+        ss = (so - 1.0) * so * so;
+        Vq = Vq + VV(iy4) * ss * (((2.0 - to) * to - 1.0) * to) + VV(iy4+1) * ss * ((3.0 * to - 5.0) * to * to + 2.0) + VV(iy4+2) * ss * (((4.0 - 3.0 * to) * to + 1.0) * to) + VV(iy4+3) * ss * ((to - 1.0) * to * to);
+        Vq = Vq/4;
+        
+        npt = -lambdad*sqrt(epsn + (I1(i,j) - Vq)^2);
+    end
 mu=gather(cat(3,muu,muv));
 sigma=gather(cat(3,sigmau,sigmav));
 rou=gather(rou);
 AEPE=gather(AEPE);
 Energy=gather(Energy);
+end
+
+function VV = getVV(V)
+[M,N]=size(V);%M=388;N=584
+M2 = M+2;%M2=390;
+N2 = N+2;%N2=586;
+M2N2=M2*N2;
+VV=zeros(M2,N2,'gpuArray');
+VV(2:end-1,2:end-1)=V;
+for i=1:N2
+    ix = i-1;
+    VV(M2*ix+1) = (3.0 * VV(2 + M2*ix) - 3.0 * VV(3 + M2*ix)) + VV(4 + M2*ix);
+    VV(M2 + M2*ix) = (3.0 * VV(M+1 + M2*ix) - 3.0 * VV(M + M2*ix)) + VV(M-1 + M2*ix);
+end
+for i=1:M2
+    VV(i) = (3.0 * VV(M2 + i) - 3.0 * VV(M2*2 + i)) + VV(M2*3 + i);
+    VV(M2N2-M2 + i) = (3.0 * VV(M2N2-M2*2 + i) - 3.0 * VV(M2N2-M2*3 + i)) + VV(M2N2-M2*4 + i);
+end
 end

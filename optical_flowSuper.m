@@ -1,7 +1,7 @@
 clear;
 %read images from dataset and convert greyscale
-testdata = {'Urban2','Urban3','Grove3','Hydrangea','Venus','RubberWhale','Dimetrodon','Grove2'};
-scale = 1; preprocessed=false; mix = true;
+testdata = {'RubberWhale','Dimetrodon','Hydrangea','Venus','Grove2','Grove3','Urban2','Urban3'};
+scale = 1; preprocessed=false; mix = false;
 for ti=1:numel(testdata)
     if ~preprocessed
         img1 = imresize(imread(['middlebury/',testdata{ti},'/frame10.png']),scale);
@@ -25,7 +25,7 @@ for ti=1:numel(testdata)
     options.drate=1-1E-3;
 %     options.dir = ['../Results3_mix_entropy/',testdata{ti}];
     options.dir = ['../Results3_mix/',testdata{ti}];
-    mkdir(options.dir);
+%     mkdir(options.dir);
     if mix==true
         [mu, sigma, alpha, AEPE, Energy,logP] = gqmap_gpuSuper_mix(options,img1,img2,trueFlow);
         save([options.dir,'/',testdata{ti},'.mat'],'options','AEPE','trueFlow','unknownIdx','mu','sigma','alpha','Energy','logP');

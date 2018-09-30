@@ -148,20 +148,20 @@ toc;
         lp = sum(sum(np(M_,N_))) + sum(sum(sum(sum(ep(M_,N_,:,:)))));
     end
 
-    function lp = node_lp(u,v,m,n)
+    function lp = node_lp(x1,x2,m,n)
         lp=0;
         bottom=4*m;top=bottom-3;
         right=4*n;left=right-3;
         for i=top:bottom
             for j=left:right
-                lp=lp+node_pot(u,v,i,j);
+                lp=lp+node_pot(x1,x2,i,j);
             end
         end
     end
 
-    function npt = node_pot(u,v,m,n)
-        Xq = n + u;
-        Yq = m + v;
+    function npt = node_pot(x1,x2,i,j)
+        Xq = min(max(j + x1,1),No);
+        Yq = min(max(i + x2,1),Mo);
         %Bicubic interpolation kernel version (from interp2)
         if Xq <= 1.0, ix = 1;elseif Xq <= No-1, ix = floor(Xq);else, ix = No-1;end
         if Yq <= 1.0, iy = 1;elseif Yq <= Mo-1, iy = floor(Yq);else, iy = Mo-1;end
@@ -172,16 +172,16 @@ toc;
         iy2 = iy1 + M2;
         iy3 = iy2 + M2;
         iy4 = iy3 + M2;
-        zik = ((VV(iy1) * ss * (((2.0 - t) * t - 1.0) * t) + VV(iy1+1) * ss * ((3.0 * t - 5.0) * t * t + 2.0)) + VV(iy1+2) * ss * (((4.0 - 3.0 * t) * t + 1.0) * t)) + VV(iy1+3) * ss * ((t - 1.0) * t * t);
+        Vq = ((VV(iy1) * ss * (((2.0 - t) * t - 1.0) * t) + VV(iy1+1) * ss * ((3.0 * t - 5.0) * t * t + 2.0)) + VV(iy1+2) * ss * (((4.0 - 3.0 * t) * t + 1.0) * t)) + VV(iy1+3) * ss * ((t - 1.0) * t * t);
         ss = (3.0 * s - 5.0) * s * s + 2.0;
-        zik = zik + VV(iy2) * ss * (((2.0 - t) * t - 1.0) * t) + VV(iy2+1) * ss * ((3.0 * t - 5.0) * t * t + 2.0) + VV(iy2+2) * ss * (((4.0 - 3.0 * t) * t + 1.0) * t) + VV(iy2+3) * ss * ((t - 1.0) * t * t);
+        Vq = Vq + VV(iy2) * ss * (((2.0 - t) * t - 1.0) * t) + VV(iy2+1) * ss * ((3.0 * t - 5.0) * t * t + 2.0) + VV(iy2+2) * ss * (((4.0 - 3.0 * t) * t + 1.0) * t) + VV(iy2+3) * ss * ((t - 1.0) * t * t);
         ss = ((4.0 - 3.0 * s) * s + 1.0) * s;
-        zik = zik + VV(iy3) * ss * (((2.0 - t) * t - 1.0) * t) + VV(iy3+1) * ss * ((3.0 * t - 5.0) * t * t + 2.0) + VV(iy3+2) * ss * (((4.0 - 3.0 * t) * t + 1.0) * t) + VV(iy3+3) * ss * ((t - 1.0) * t * t);
+        Vq = Vq + VV(iy3) * ss * (((2.0 - t) * t - 1.0) * t) + VV(iy3+1) * ss * ((3.0 * t - 5.0) * t * t + 2.0) + VV(iy3+2) * ss * (((4.0 - 3.0 * t) * t + 1.0) * t) + VV(iy3+3) * ss * ((t - 1.0) * t * t);
         ss = (s - 1.0) * s * s;
-        zik = zik + VV(iy4) * ss * (((2.0 - t) * t - 1.0) * t) + VV(iy4+1) * ss * ((3.0 * t - 5.0) * t * t + 2.0) + VV(iy4+2) * ss * (((4.0 - 3.0 * t) * t + 1.0) * t) + VV(iy4+3) * ss * ((t - 1.0) * t * t);
-        Vq = zik/4;
+        Vq = Vq + VV(iy4) * ss * (((2.0 - t) * t - 1.0) * t) + VV(iy4+1) * ss * ((3.0 * t - 5.0) * t * t + 2.0) + VV(iy4+2) * ss * (((4.0 - 3.0 * t) * t + 1.0) * t) + VV(iy4+3) * ss * ((t - 1.0) * t * t);
+        Vq = Vq/4;
         
-        npt = -lambdad*sqrt(epsn + (I1(m,n) - Vq)^2);
+        npt = -lambdad*sqrt(epsn + (I1(i,j) - Vq)^2);
     end
 
     function ept = edge_pot(x1,x2)
