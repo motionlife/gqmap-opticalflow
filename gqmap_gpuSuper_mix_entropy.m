@@ -165,20 +165,20 @@ toc;
         %Bicubic interpolation kernel version (from interp2)
         if Xq <= 1.0, ix = 1;elseif Xq <= No-1, ix = floor(Xq);else, ix = No-1;end
         if Yq <= 1.0, iy = 1;elseif Yq <= Mo-1, iy = floor(Yq);else, iy = Mo-1;end
-        s = Xq - ix;
-        t = Yq - iy;
-        ss = ((2.0 - s) * s - 1.0) * s;
+        so = Xq - ix;
+        to = Yq - iy;
+        ss = ((2.0 - so) * so - 1.0) * so;
         iy1 = iy + M2 * (ix - 1);
         iy2 = iy1 + M2;
         iy3 = iy2 + M2;
         iy4 = iy3 + M2;
-        Vq = ((VV(iy1) * ss * (((2.0 - t) * t - 1.0) * t) + VV(iy1+1) * ss * ((3.0 * t - 5.0) * t * t + 2.0)) + VV(iy1+2) * ss * (((4.0 - 3.0 * t) * t + 1.0) * t)) + VV(iy1+3) * ss * ((t - 1.0) * t * t);
-        ss = (3.0 * s - 5.0) * s * s + 2.0;
-        Vq = Vq + VV(iy2) * ss * (((2.0 - t) * t - 1.0) * t) + VV(iy2+1) * ss * ((3.0 * t - 5.0) * t * t + 2.0) + VV(iy2+2) * ss * (((4.0 - 3.0 * t) * t + 1.0) * t) + VV(iy2+3) * ss * ((t - 1.0) * t * t);
-        ss = ((4.0 - 3.0 * s) * s + 1.0) * s;
-        Vq = Vq + VV(iy3) * ss * (((2.0 - t) * t - 1.0) * t) + VV(iy3+1) * ss * ((3.0 * t - 5.0) * t * t + 2.0) + VV(iy3+2) * ss * (((4.0 - 3.0 * t) * t + 1.0) * t) + VV(iy3+3) * ss * ((t - 1.0) * t * t);
-        ss = (s - 1.0) * s * s;
-        Vq = Vq + VV(iy4) * ss * (((2.0 - t) * t - 1.0) * t) + VV(iy4+1) * ss * ((3.0 * t - 5.0) * t * t + 2.0) + VV(iy4+2) * ss * (((4.0 - 3.0 * t) * t + 1.0) * t) + VV(iy4+3) * ss * ((t - 1.0) * t * t);
+        Vq = ((VV(iy1) * ss * (((2.0 - to) * to - 1.0) * to) + VV(iy1+1) * ss * ((3.0 * to - 5.0) * to * to + 2.0)) + VV(iy1+2) * ss * (((4.0 - 3.0 * to) * to + 1.0) * to)) + VV(iy1+3) * ss * ((to - 1.0) * to * to);
+        ss = (3.0 * so - 5.0) * so * so + 2.0;
+        Vq = Vq + VV(iy2) * ss * (((2.0 - to) * to - 1.0) * to) + VV(iy2+1) * ss * ((3.0 * to - 5.0) * to * to + 2.0) + VV(iy2+2) * ss * (((4.0 - 3.0 * to) * to + 1.0) * to) + VV(iy2+3) * ss * ((to - 1.0) * to * to);
+        ss = ((4.0 - 3.0 * so) * so + 1.0) * so;
+        Vq = Vq + VV(iy3) * ss * (((2.0 - to) * to - 1.0) * to) + VV(iy3+1) * ss * ((3.0 * to - 5.0) * to * to + 2.0) + VV(iy3+2) * ss * (((4.0 - 3.0 * to) * to + 1.0) * to) + VV(iy3+3) * ss * ((to - 1.0) * to * to);
+        ss = (so - 1.0) * so * so;
+        Vq = Vq + VV(iy4) * ss * (((2.0 - to) * to - 1.0) * to) + VV(iy4+1) * ss * ((3.0 * to - 5.0) * to * to + 2.0) + VV(iy4+2) * ss * (((4.0 - 3.0 * to) * to + 1.0) * to) + VV(iy4+3) * ss * ((to - 1.0) * to * to);
         Vq = Vq/4;
         
         npt = -lambdad*sqrt(epsn + (I1(i,j) - Vq)^2);
