@@ -135,21 +135,10 @@ toc;
     function lp = profile_logP(uv)
         us = uv(:,:,1);
         vs = uv(:,:,2);
-        np = arrayfun(@node_lp,us,vs,ms,ns);
+        np = arrayfun(@node_pot,us,vs,ms,ns);
         ep = arrayfun(@edge_pot,cat(4,uv,uv),cat(4,circshift(uv,-1),circshift(uv,-1,2)));
         lp = sum(sum(np(M_,N_))) + sum(sum(sum(sum(ep(M_,N_,:,:)))));
     end
-    function lp = node_lp(x1,x2,m,n)
-        lp=0;
-        bottom=4*m;top=bottom-3;
-        right=4*n;left=right-3;
-        for i=top:bottom
-            for j=left:right
-                lp=lp+node_pot(x1,x2,i,j);
-            end
-        end
-    end
-
     
     function npt = node_pot(x1,x2,i,j)
         Xq = min(max(j + x1,1),N);
