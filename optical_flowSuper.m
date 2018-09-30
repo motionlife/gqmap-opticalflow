@@ -1,6 +1,6 @@
 clear;
 %read images from dataset and convert greyscale
-testdata = {'RubberWhale','Hydrangea','Venus','Dimetrodon','Grove2','Grove3','Urban2','Urban3'};%,{'Hydrangea'};,%
+testdata = {'Urban2','Urban3','Grove3','Hydrangea','Venus','RubberWhale','Dimetrodon','Grove2'};
 scale = 1; preprocessed=false; mix = true;
 for ti=1:numel(testdata)
     if ~preprocessed
@@ -20,15 +20,15 @@ for ti=1:numel(testdata)
     options.epsn = 0.001^2;
     options.lambdas = 16;
     options.lambdad = 1;
-    options.temperature = 100;
+    options.temperature = 7;
     options.L = 3;
     options.drate=1-1E-3;
-    options.dir = ['../Results_mix_entropy/',testdata{ti}];
-%     options.dir = ['../Results_mix_good/',testdata{ti}];
+%     options.dir = ['../Results3_mix_entropy/',testdata{ti}];
+    options.dir = ['../Results3_mix/',testdata{ti}];
     mkdir(options.dir);
     if mix==true
-        [mu, sigma, alpha, AEPE, Energy] = gqmap_gpuSuper_mix_entropy(options,img1,img2,trueFlow);
-        save([options.dir,'/',testdata{ti},'.mat'],'options','AEPE','trueFlow','unknownIdx','mu','sigma','alpha','Energy');
+        [mu, sigma, alpha, AEPE, Energy,logP] = gqmap_gpuSuper_mix(options,img1,img2,trueFlow);
+        save([options.dir,'/',testdata{ti},'.mat'],'options','AEPE','trueFlow','unknownIdx','mu','sigma','alpha','Energy','logP');
     else
         [mu, sigma, rou, AEPE, Energy] = gqmap_gpuSuper(options,img1,img2,trueFlow);
         save([options.dir,'/',testdata{ti},'.mat'],'options','AEPE','trueFlow','unknownIdx','mu','sigma','Energy');
