@@ -1,17 +1,17 @@
-function [mu, sigma, alpha, AEPE,Energy,logP] = gqmap_gpuSuper_mix(options,I1,I2,GRDT)
+function [mu, sigma, alpha, AEPE, Energy, logP] = gqmap_gpu_mixture(options,I1,I2,GRDT)
 %GQMAP perform MAP inference using Gaussian Quadruatre with gradient ascent method
-its = options.its; K = options.K; L=options.L;
-epsn = options.epsn; lambdad = options.lambdad; lambdas=options.lambdas;
-minu=options.minu;maxu=options.maxu;minv=options.minv;maxv=options.maxv;
-I1=gpuArray(I1); K2 = K^2; sqrt2=sqrt(2); corr_tor=0.999;
+its = options.its;  K = options.K;  L=3;
+epsn = options.epsn;    lambdad = options.lambdad;  lambdas = options.lambdas;
+minu=options.minu;  maxu=options.maxu;  minv=options.minv;  maxv=options.maxv;
+I1=gpuArray(I1);K2 = K^2; sqrt2=sqrt(2); corr_tor=0.999;
 [X, W] = GaussHermite_2(K); X = gpuArray(X);  W = gpuArray(W);
 [XI,XJ] = meshgrid(X); [WI,WJ] = meshgrid(W);
-WIWJ = WI.*WJ; XIXJ = XI.*XJ; XI2aXJ2 = XI.^2 + XJ.^2;XI2mXJ2 = XI.^2 - XJ.^2;
-[Mo,No] = size(I1); M = Mo/4; N = No/4; border=1; M_= (1+border):(M-border); N_ = (1+border):(N-border);
-VV = gpuArray(getVV(I2)); M2 = Mo+2;
-% rfc=6;rfc2=2^rfc;	I2_cont = interp2(I2,rfc,'cubic');[MM, NN] = size(I2_cont);
+WIWJ = WI.*WJ; XIXJ = XI.*XJ; XI2aXJ2 = XI.^2 + XJ.^2;XI2mXJ2 = XI.^2 - XJ.^2;%XI2 = 2*XI.^2; XJ2 = 2*XJ.^2; 
+[M,N] = size(I1); rg=1; M_=(1+rg):(M-rg); N_=(1+rg):(N-rg);
+VV = gpuArray(getVV(I2));M2=M+2;logP = NaN(its,1,'gpuArray');
+% rfc=6;	rfc2=2^rfc;	I2_cont = interp2(I2,rfc,'cubic');	[MM, NN] = size(I2_cont);
 [ns,ms] = meshgrid(gpuArray(1:N),gpuArray(1:M));
-best_aepe=Inf; AEPE=NaN(its,1,'gpuArray'); logP = NaN(its,1,'gpuArray'); Energy = zeros(its,1,'gpuArray');mark=1;
+
 %initialize gpu data
 w = rand(1,1,L,'gpuArray'); alpha = w.^2./sum(w.^2);%alpha = rand(L,1,'gpuArray'); alpha = reshape(alpha./sum(alpha),1,1,L);
 muu = minu+rand(M,N,L,'gpuArray')*(maxu-minu);
@@ -20,9 +20,12 @@ sigmau = rand(M,N,L,'gpuArray') + (maxu-minu);% make sure it's a large initializ
 sigmav = rand(M,N,L,'gpuArray') + (maxv-minv);
 pn = zeros(M,N,L,'gpuArray');
 rou = zeros(M,N,L,2,2,'gpuArray');
-it = 1; tor = 1e-4; tic;
+%for verbose info and profiling
+best_aepe=Inf; AEPE=ones(its,1,'gpuArray')*17;mark=1;
+Energy = zeros(its,1,'gpuArray');%logP = zeros(its,1,'gpuArray');
+it = 1;tor = 1e-4;tic;
 while 1
-    step = 0.001/(1+it/5000);%0.07/(1+it/5000);
+    step = 0.007/(1+it/5000);
     %dim_1:(M)--dim_2:(N)--dim_3:L(mixture components)
     [dan,dmuu,dmuv,dsigmau,dsigmav,dpn,nEnergy] = arrayfun(@node_grad_spectral,repmat(alpha,M,N,1),muu,muv,sigmau,sigmav,pn,ms,ns);
     %dim_1:(M)--dim_2:(N)--dim_3:L(mixture components)--dim_4:(vertical/horizontal edges)--dim_5:(u/v edges)
@@ -31,7 +34,7 @@ while 1
         cat(5,repmat(sigmau,[1 1 1 2]),repmat(sigmav,[1 1 1 2])),...
         cat(5,cat(4,circshift(sigmau,-1), circshift(sigmau,-1,2)),cat(4,circshift(sigmav,-1), circshift(sigmav,-1,2))),rou);
     
-    dalpha = sum(sum(dan(M_,N_,:),1),2) + sum(sum(sum(sum(dae(M_,N_,:,:,:),1),2),4),5);
+    dalpha = sum(sum(dan(M_,N_,:),1),2) + sum(sum(sum(sum(dae(M_,N_,:,:,:),1),2),4),5); 
     dmuu = dmuu + sum(dmu1(:,:,:,:,1),4) + circshift(dmu2(:,:,:,1,1),1) + circshift(dmu2(:,:,:,2,1),1,2);
     dmuv = dmuv + sum(dmu1(:,:,:,:,2),4) + circshift(dmu2(:,:,:,1,2),1) + circshift(dmu2(:,:,:,2,2),1,2);
     dsigmau = dsigmau + sum(dsigma1(:,:,:,:,1),4) + circshift(dsigma2(:,:,:,1,1),1) + circshift(dsigma2(:,:,:,2,1),1,2);
@@ -44,22 +47,21 @@ while 1
     pn(M_,N_,:) = min(max(pn(M_,N_,:) + dpn(M_,N_,:) * step, -corr_tor), corr_tor);
     
     Energy(it) = sum(sum(sum(nEnergy(M_,N_,:)))) + sum(sum(sum(sum(sum(eEnergy(M_,N_,:,:,:))))));
-    % if it>1000, alpha = projsplx(alpha + dalpha * step * 1E-7);end
+    %how to set a reasonable dalpha step size
+    %if it>500, alpha = projsplx(alpha + dalpha * step * 1E-7);end
     if it>700, alpha = updateAlpha();end
-    
-    if mod(it,500)==0
-        [alf,mu_u,sig_u,mu_v,sig_v] = gather(alpha,muu,sigmau,muv,sigmav);
-        MAP = findMixMax(alf, mu_u, sig_u, mu_v, sig_v);
-        flow = repelem(MAP,4,4);
-        flc = flowToColor(flow(5:end-4,5:end-4,:));
-        %imshow(flc);
+
+    if mod(it,1000)==0 || it==1
+        [alf,mu_u,sig_u,mu_v,sig_v] = gather(alpha,muu,sigmau, muv,sigmav);
+        flow = findMixMax(alf, mu_u, sig_u, mu_v, sig_v);
+        flc = flowToColor(flow);
+%         imshow(flc);
         imwrite(flc,[options.dir,'/',num2str(it),'.png']);
-        aepe = mean(mean(sqrt(sum((GRDT(5:end-4,5:end-4,:) - flow(5:end-4,5:end-4,:)).^2,3))));AEPE(it)=aepe;
+        aepe = mean(mean(sqrt(sum((GRDT(M_,N_,:) - flow(M_,N_,:)).^2,3))));AEPE(it)=aepe;
         if aepe < best_aepe, best_aepe = aepe;end
-        logP(it) = profile_logP(gpuArray(MAP));
+        logP(it) = profile_logP(gpuArray(flow));
         mark = it;
     end
-    
     ptdmu=abs(dmuu(M_,N_,:)); ptdsigma=abs(dsigmau(M_,N_,:));
     ptdmu = mean(ptdmu(:)); ptdsigma=mean(ptdsigma(:));
     fprintf('[%3d], \x0394(mu) = %e, \x0394(sigma) = %e, Energy = %e, AEPE=%e,logP=%e \n', ...
@@ -74,30 +76,24 @@ toc;
         alf = w.^2./sum(w.^2);
     end
     function [da,du1,du2,do1,do2,dp,Ei] = node_grad_spectral(a,u1,u2,o1,o2,p,m,n)
-        du1 = 0; du2 = 0; do1 = 0; do2 = 0; dp = 0;Ei=0;
+        du1 = 0; du2 = 0; do1 = 0; do2 = 0; dp = 0; Ei = 0;
         %if (m<=rg||m>M-rg||n<=rg||n>N-rg),return;end
         s = (sqrt(1+p)+sqrt(1-p))/2;
         t = (sqrt(1+p)-sqrt(1-p))/2;
         pr = 1 - p^2; sqrtpr = sqrt(pr);
         o1pr = sqrt2/(o1*pr); o2pr = sqrt2/(o2*pr);
-        bottom=4*m;top=bottom-3;
-        right=4*n;left=right-3;
         for k=1:K2
             zi = s*XI(k)+t*XJ(k); zj = t*XI(k)+s*XJ(k);
             x1=sqrt2*o1*zi+u1; x2=sqrt2*o2*zj+u2;
-            super=0;
-            for i=top:bottom
-                for j=left:right
-                    super=super+node_pot(x1,x2,i,j);
-                end
+            fval= WIWJ(k)*node_pot(x1,x2,m,n);
+            if a~=0
+                dp  = dp + fval*(p - p*XI2aXJ2(k) + 2*XIXJ(k));
+                du1 = du1 + fval*(zi - p*zj);
+                du2 = du2 + fval*(zj - p*zi);
+                do1 = do1 + fval*(XI2aXJ2(k) - 1 + XI2mXJ2(k)/sqrtpr);
+                do2 = do2 + fval*(XI2aXJ2(k) - 1 - XI2mXJ2(k)/sqrtpr);
             end
-            fval = WIWJ(k)*super;
-            dp  = dp + fval*(p - p*XI2aXJ2(k) + 2*XIXJ(k));
-            du1 = du1 + fval*(zi - p*zj);
-            du2 = du2 + fval*(zj - p*zi);
-            do1 = do1 + fval*(XI2aXJ2(k) - 1 + XI2mXJ2(k)/sqrtpr);
-            do2 = do2 + fval*(XI2aXJ2(k) - 1 - XI2mXJ2(k)/sqrtpr);
-            Ei = Ei + fval;
+            Ei = Ei+fval;
         end
         du1 = a*du1*o1pr/pi;
         du2 = a*du2*o2pr/pi;
@@ -107,6 +103,7 @@ toc;
         da = Ei/pi;
         Ei = a*da;
     end
+
     function [da,du1,du2,do1,do2,dp,Ei] = edge_grad_spectral(a,u1,u2,o1,o2,p)
         du1 = 0; du2 = 0; do1 = 0; do2 = 0; dp = 0; Ei=0;
         s = (sqrt(1+p)+sqrt(1-p))/2;
@@ -117,12 +114,14 @@ toc;
             zi = s*XI(k)+t*XJ(k); zj = t*XI(k)+s*XJ(k);
             x1=sqrt2*o1*zi+u1; x2=sqrt2*o2*zj+u2;
             fval = WIWJ(k)*edge_pot(x1,x2);
-            dp  = dp + fval*(p - p*XI2aXJ2(k) + 2*XIXJ(k));
-            du1 = du1 + fval*(zi - p*zj);
-            du2 = du2 + fval*(zj - p*zi);
-            do1 = do1 + fval*(XI2aXJ2(k) - 1 + XI2mXJ2(k)/sqrtpr);
-            do2 = do2 + fval*(XI2aXJ2(k) - 1 - XI2mXJ2(k)/sqrtpr);
-            Ei = Ei + fval;
+            if a~=0
+                dp  = dp + fval*(p - p*XI2aXJ2(k) + 2*XIXJ(k));
+                du1 = du1 + fval*(zi - p*zj);
+                du2 = du2 + fval*(zj - p*zi);
+                do1 = do1 + fval*(XI2aXJ2(k) - 1 + XI2mXJ2(k)/sqrtpr);
+                do2 = do2 + fval*(XI2aXJ2(k) - 1 - XI2mXJ2(k)/sqrtpr);
+            end
+            Ei = Ei+fval;
         end
         du1 = a*du1*o1pr/pi;
         du2 = a*du2*o2pr/pi;
@@ -132,30 +131,21 @@ toc;
         da = Ei/pi;
         Ei = a*da;
     end
+
     function lp = profile_logP(uv)
         us = uv(:,:,1);
         vs = uv(:,:,2);
-        np = arrayfun(@node_lp,us,vs,ms,ns);
+        np = arrayfun(@node_pot,us,vs,ms,ns);
         ep = arrayfun(@edge_pot,cat(4,uv,uv),cat(4,circshift(uv,-1),circshift(uv,-1,2)));
         lp = sum(sum(np(M_,N_))) + sum(sum(sum(sum(ep(M_,N_,:,:)))));
     end
-    function lp = node_lp(x1,x2,m,n)
-        lp=0;
-        bottom=4*m;top=bottom-3;
-        right=4*n;left=right-3;
-        for i=top:bottom
-            for j=left:right
-                lp=lp+node_pot(x1,x2,i,j);
-            end
-        end
-    end
-
+    
     function npt = node_pot(x1,x2,i,j)
-        Xq = min(max(j + x1,1),No);
-        Yq = min(max(i + x2,1),Mo);
+        Xq = min(max(j + x1,1),N);
+        Yq = min(max(i + x2,1),M);
         %Bicubic interpolation kernel version (from interp2)
-        if Xq <= 1.0, ix = 1;elseif Xq <= No-1, ix = floor(Xq);else, ix = No-1;end
-        if Yq <= 1.0, iy = 1;elseif Yq <= Mo-1, iy = floor(Yq);else, iy = Mo-1;end
+        if Xq <= 1.0, ix = 1;elseif Xq <= N-1, ix = floor(Xq);else, ix = N-1;end
+        if Yq <= 1.0, iy = 1;elseif Yq <= M-1, iy = floor(Yq);else, iy = M-1;end
         so = Xq - ix;
         to = Yq - iy;
         ss = ((2.0 - so) * so - 1.0) * so;
@@ -174,7 +164,6 @@ toc;
         
         npt = -lambdad*sqrt(epsn + (I1(i,j) - Vq)^2);
     end
-
     function ept = edge_pot(x1,x2)
         ept = -lambdas*sqrt(epsn+(x1-x2)^2);
     end
@@ -204,3 +193,4 @@ function VV = getVV(V)
         VV(M2N2-M2+i) = (3.0*VV(M2N2-M2*2+i) - 3.0 * VV(M2N2-M2*3+i)) + VV(M2N2-M2*4+i);
     end
 end
+    

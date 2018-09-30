@@ -17,10 +17,10 @@ for ti=1:numel(testdata)
     options.epsn = 0.001^2;
     options.lambdas = 7;
     options.lambdad = 1;
-    options.dir = ['../Result4_full/',testdata{ti}];
+    options.dir = ['../Results4_full/',testdata{ti}];
     mkdir(options.dir);
     % [mu, sigma, alpha, AEPE,Energy] = gqmap_gpuV2(options,img_1,img_2,trueFlow);
     [mu, sigma, alpha, AEPE, Energy,logP] = gqmap_gpu_mixture(options,img_1,img_2,trueFlow);
-    save([options.dir,'/',testdata{ti},'.mat'],'options','AEPE','trueFlow','unknownIdx','mu', 'sigma','alpha');
+    save([options.dir,'/',testdata{ti},'.mat'],'options','AEPE','trueFlow','unknownIdx','mu', 'sigma','alpha','Energy','logP');
 
 end

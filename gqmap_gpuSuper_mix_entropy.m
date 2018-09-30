@@ -200,15 +200,16 @@ function VV = getVV(V)
     M2 = M+2;%M2=390;
     N2 = N+2;%N2=586;
     M2N2=M2*N2;
-    VV=zeros(M2,N2,'gpuArray');
+    VV=zeros(M2,N2);
     VV(2:end-1,2:end-1)=V;
     for i=1:N2
-        ix = i-1;
-        VV(M2*ix+1) = (3.0 * VV(2 + M2*ix) - 3.0 * VV(3 + M2*ix)) + VV(4 + M2*ix);
-        VV(M2 + M2*ix) = (3.0 * VV(M+1 + M2*ix) - 3.0 * VV(M + M2*ix)) + VV(M-1 + M2*ix);
+        ix = M2*(i-1)+1;
+        iy = ix+M2-1;
+        VV(ix) = (3.0*VV(ix+1) - 3.0*VV(ix+2)) + VV(ix+3);
+        VV(iy) = (3.0*VV(iy-1) - 3.0*VV(iy-2)) + VV(iy-3);
     end
     for i=1:M2
-        VV(i) = (3.0 * VV(M2 + i) - 3.0 * VV(M2*2 + i)) + VV(M2*3 + i);
-        VV(M2N2-M2 + i) = (3.0 * VV(M2N2-M2*2 + i) - 3.0 * VV(M2N2-M2*3 + i)) + VV(M2N2-M2*4 + i);
+        VV(i) = (3.0*VV(M2+i) - 3.0*VV(M2*2+i)) + VV(M2*3+i);
+        VV(M2N2-M2+i) = (3.0*VV(M2N2-M2*2+i) - 3.0 * VV(M2N2-M2*3+i)) + VV(M2N2-M2*4+i);
     end
 end
