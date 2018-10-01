@@ -9,7 +9,7 @@ for ti=1:numel(testdata)
     img_1 = double(rgb2gray(img1));
     img_2 = double(rgb2gray(img2));
     [gdt_img,trueFlow,options.minu, options.maxu, options.minv, options.maxv,unknownIdx] = ...
-        flowToColor(readFlowFile(['middlebury/',testdata{ti},'/flow10.flo']));
+    flowToColor_mex(readFlowFile(['middlebury/',testdata{ti},'/flow10.flo']));
     gdt_img = imresize(gdt_img,scale);
 
     options.K = 11;

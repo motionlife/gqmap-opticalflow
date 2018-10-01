@@ -22,7 +22,7 @@ pn = zeros(M,N,L,'gpuArray');
 rou = zeros(M,N,L,2,2,'gpuArray');
 it = 1; tor = 1e-4;
 while 1
-    step = 0.002/(1+it/5000);%0.07/(1+it/5000);
+    step = 0.001/(1+it/5000);%0.07/(1+it/5000);
     %dim_1:(M)--dim_2:(N)--dim_3:L(mixture components)
     [dan,dmuu,dmuv,dsigmau,dsigmav,dpn,nEnergy] = arrayfun(@node_grad_spectral,repmat(alpha,M,N,1),muu,muv,sigmau,sigmav,pn,ms,ns);
     %dim_1:(M)--dim_2:(N)--dim_3:L(mixture components)--dim_4:(vertical/horizontal edges)--dim_5:(u/v edges)
@@ -49,14 +49,18 @@ while 1
     
     if mod(it,300)==0
         [alf,mu_u,sig_u,mu_v,sig_v] = gather(alpha,muu,sigmau,muv,sigmav);
-        MAP = findMap_mex(alf, mu_u, sig_u, mu_v, sig_v);
-        flow = repelem(MAP,4,4);
-        flc = flowToColor(flow(5:end-4,5:end-4,:));
+        if length(alpha)==1
+            map = cat(3,mu_u,mu_v);
+        else
+            map = findMap_mex(alf, mu_u, sig_u, mu_v, sig_v);
+        end
+        flow = repelem(map,4,4);
+        flc = flowToColor_mex(flow(5:end-4,5:end-4,:));
 %         imshow(flc);
         imwrite(flc,[options.dir,'/',num2str(it),'.png']);
         aepe = mean(mean(sqrt(sum((GRDT(5:end-4,5:end-4,:) - flow(5:end-4,5:end-4,:)).^2,3))));AEPE(it)=aepe;
         if aepe < best_aepe, best_aepe = aepe;end
-        logP(it) = profile_logP(gpuArray(MAP));
+        logP(it) = profile_logP(gpuArray(map));
         mark = it;
     end
     
@@ -73,7 +77,7 @@ end
 %         w = w + dalpha.*(smw-w.^2).*w/smw^2 * step*1E-7;
 %         alf = w.^2/sum(w.^2);
         smw = sum(exp(w));
-        w = min(max(w + dalpha.*(smw-exp(w)).*exp(w)/smw^2*step*1E-7,-300),300);
+        w = min(max(w + dalpha.*(smw-exp(w)).*exp(w)/smw^2*step*1E-5,-300),300);
         alf = exp(w)./sum(exp(w));
     end
     function [da,du1,du2,do1,do2,dp,Ei] = node_grad_spectral(a,u1,u2,o1,o2,p,m,n)

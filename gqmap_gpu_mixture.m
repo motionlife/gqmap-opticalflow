@@ -54,7 +54,7 @@ while 1
     if mod(it,300)==0 || it==1
         [alf,mu_u,sig_u,mu_v,sig_v] = gather(alpha,muu,sigmau, muv,sigmav);
         flow = findMap_mex(alf, mu_u, sig_u, mu_v, sig_v);
-        flc = flowToColor(flow);
+        flc = flowToColor_mex(flow);
 %         imshow(flc);
         imwrite(flc,[options.dir,'/',num2str(it),'.png']);
         aepe = mean(mean(sqrt(sum((GRDT(M_,N_,:) - flow(M_,N_,:)).^2,3))));AEPE(it)=aepe;
@@ -75,7 +75,7 @@ toc;
 %         w = w + dalpha.*(smw-w.^2).*w/smw^2 * step*1E-7;
 %         alf = w.^2/sum(w.^2);
         smw = sum(exp(w));
-        w = min(max(w + dalpha.*(smw-exp(w)).*exp(w)/smw^2*step*1E-7,-300),300);
+        w = min(max(w + dalpha.*(smw-exp(w)).*exp(w)/smw^2*step*1E-5,-300),300);
         alf = exp(w)./sum(exp(w));
     end
     function [da,du1,du2,do1,do2,dp,Ei] = node_grad_spectral(a,u1,u2,o1,o2,p,m,n)
