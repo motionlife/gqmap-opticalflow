@@ -25,7 +25,7 @@ best_aepe=Inf; AEPE=ones(its,1,'gpuArray')*17;mark=1;
 Energy = zeros(its,1,'gpuArray');%logP = zeros(its,1,'gpuArray');
 it = 1;tor = 1e-4;tic;
 while 1
-    step = 0.007/(1+it/5000);
+    step = 0.009/(1+it/5000);
     %dim_1:(M)--dim_2:(N)--dim_3:L(mixture components)
     [dan,dmuu,dmuv,dsigmau,dsigmav,dpn,nEnergy] = arrayfun(@node_grad_spectral,repmat(alpha,M,N,1),muu,muv,sigmau,sigmav,pn,ms,ns);
     %dim_1:(M)--dim_2:(N)--dim_3:L(mixture components)--dim_4:(vertical/horizontal edges)--dim_5:(u/v edges)
@@ -53,7 +53,7 @@ while 1
 
     if mod(it,1000)==0 || it==1
         [alf,mu_u,sig_u,mu_v,sig_v] = gather(alpha,muu,sigmau, muv,sigmav);
-        flow = findMixMax(alf, mu_u, sig_u, mu_v, sig_v);
+        flow = findMap_mex(alf, mu_u, sig_u, mu_v, sig_v);
         flc = flowToColor(flow);
 %         imshow(flc);
         imwrite(flc,[options.dir,'/',num2str(it),'.png']);
@@ -72,8 +72,8 @@ end
 toc;
     function alf=updateAlpha()
         smw = sum(w.^2);
-        w = w + dalpha.*(smw-w.^2).*w/smw^2 * step;
-        alf = w.^2./sum(w.^2);
+        w = w + dalpha.*(smw-w.^2).*w/smw^2 * step *1E-3;
+        alf = w.^2/sum(w.^2);
     end
     function [da,du1,du2,do1,do2,dp,Ei] = node_grad_spectral(a,u1,u2,o1,o2,p,m,n)
         du1 = 0; du2 = 0; do1 = 0; do2 = 0; dp = 0; Ei = 0;

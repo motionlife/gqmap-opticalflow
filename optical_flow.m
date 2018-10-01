@@ -15,7 +15,7 @@ for ti=1:numel(testdata)
     options.K = 15;
     options.its =30000;
     options.epsn = 0.001^2;
-    options.lambdas = 7;
+    options.lambdas = 5;
     options.lambdad = 1;
     options.dir = ['../Results4_full/',testdata{ti}];
     mkdir(options.dir);

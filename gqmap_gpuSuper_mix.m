@@ -49,7 +49,7 @@ while 1
     
     if mod(it,500)==0
         [alf,mu_u,sig_u,mu_v,sig_v] = gather(alpha,muu,sigmau,muv,sigmav);
-        MAP = findMixMax(alf, mu_u, sig_u, mu_v, sig_v);
+        MAP = findMap_mex(alf, mu_u, sig_u, mu_v, sig_v);
         flow = repelem(MAP,4,4);
         flc = flowToColor(flow(5:end-4,5:end-4,:));
         %imshow(flc);
@@ -70,8 +70,8 @@ end
 toc;
     function alf=updateAlpha()
         smw = sum(w.^2);
-        w = w + dalpha.*(smw-w.^2).*w/smw^2 * step;
-        alf = w.^2./sum(w.^2);
+        w = w + dalpha.*(smw-w.^2).*w/smw^2 * step*1E-3;
+        alf = w.^2/sum(w.^2);
     end
     function [da,du1,du2,do1,do2,dp,Ei] = node_grad_spectral(a,u1,u2,o1,o2,p,m,n)
         du1 = 0; du2 = 0; do1 = 0; do2 = 0; dp = 0;Ei=0;
