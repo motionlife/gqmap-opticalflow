@@ -3,7 +3,7 @@ clear;
 testdata = {'RubberWhale','Dimetrodon','Hydrangea','Venus','Grove2','Grove3','Urban2','Urban3'};
 scale = 1;
 for ti=1:numel(testdata)
-    time=datestr(now, 'yyyymmddHHMMSS');
+    % time=datestr(now, 'yyyymmddHHMMSS');
     img1 = imresize(imread(['middlebury/',testdata{ti},'/frame10.png']),scale);
     img2 = imresize(imread(['middlebury/',testdata{ti},'/frame11.png']),scale);
     img_1 = double(rgb2gray(img1));
@@ -12,7 +12,7 @@ for ti=1:numel(testdata)
         flowToColor(readFlowFile(['middlebury/',testdata{ti},'/flow10.flo']));
     gdt_img = imresize(gdt_img,scale);
 
-    options.K = 15;
+    options.K = 11;
     options.its =30000;
     options.epsn = 0.001^2;
     options.lambdas = 5;

@@ -3,7 +3,7 @@ function [mu, sigma, alpha, AEPE,Energy,logP] = gqmap_gpuSuper_mix(options,I1,I2
 its = options.its; K = options.K; L=options.L;
 epsn = options.epsn; lambdad = options.lambdad; lambdas=options.lambdas;
 minu=options.minu;maxu=options.maxu;minv=options.minv;maxv=options.maxv;
-I1=gpuArray(I1); K2 = K^2; sqrt2=sqrt(2); corr_tor=0.999;
+I1=gpuArray(I1); K2 = K^2; sqrt2=sqrt(2); corr_tor=1-1e-5;
 [X, W] = GaussHermite_2(K); X = gpuArray(X);  W = gpuArray(W);
 [XI,XJ] = meshgrid(X); [WI,WJ] = meshgrid(W);
 WIWJ = WI.*WJ; XIXJ = XI.*XJ; XI2aXJ2 = XI.^2 + XJ.^2;XI2mXJ2 = XI.^2 - XJ.^2;
@@ -13,16 +13,16 @@ VV = gpuArray(getVV(I2)); M2 = Mo+2;
 [ns,ms] = meshgrid(gpuArray(1:N),gpuArray(1:M));
 best_aepe=Inf; AEPE=NaN(its,1,'gpuArray'); logP = NaN(its,1,'gpuArray'); Energy = zeros(its,1,'gpuArray');mark=1;
 %initialize gpu data
-w = rand(1,1,L,'gpuArray'); alpha = w.^2./sum(w.^2);%alpha = rand(L,1,'gpuArray'); alpha = reshape(alpha./sum(alpha),1,1,L);
+w = rand(1,1,L,'gpuArray'); alpha = exp(w)./sum(exp(w));
 muu = minu+rand(M,N,L,'gpuArray')*(maxu-minu);
 muv = minv+rand(M,N,L,'gpuArray')*(maxv-minv);
 sigmau = rand(M,N,L,'gpuArray') + (maxu-minu);% make sure it's a large initialization
 sigmav = rand(M,N,L,'gpuArray') + (maxv-minv);
 pn = zeros(M,N,L,'gpuArray');
 rou = zeros(M,N,L,2,2,'gpuArray');
-it = 1; tor = 1e-4; tic;
+it = 1; tor = 1e-4;
 while 1
-    step = 0.001/(1+it/5000);%0.07/(1+it/5000);
+    step = 0.002/(1+it/5000);%0.07/(1+it/5000);
     %dim_1:(M)--dim_2:(N)--dim_3:L(mixture components)
     [dan,dmuu,dmuv,dsigmau,dsigmav,dpn,nEnergy] = arrayfun(@node_grad_spectral,repmat(alpha,M,N,1),muu,muv,sigmau,sigmav,pn,ms,ns);
     %dim_1:(M)--dim_2:(N)--dim_3:L(mixture components)--dim_4:(vertical/horizontal edges)--dim_5:(u/v edges)
@@ -38,8 +38,8 @@ while 1
     dsigmav = dsigmav + sum(dsigma1(:,:,:,:,2),4) + circshift(dsigma2(:,:,:,1,2),1) + circshift(dsigma2(:,:,:,2,2),1,2);
     muu(M_,N_,:) = min(max(muu(M_,N_,:) + dmuu(M_,N_,:) * step, minu), maxu);
     muv(M_,N_,:) = min(max(muv(M_,N_,:) + dmuv(M_,N_,:) * step, minv), maxv);
-    sigmau(M_,N_,:) = min(max(sigmau(M_,N_,:) + dsigmau(M_,N_,:) * step,0.01),23);
-    sigmav(M_,N_,:) = min(max(sigmav(M_,N_,:) + dsigmav(M_,N_,:) * step,0.01),23);
+    sigmau(M_,N_,:) = min(max(sigmau(M_,N_,:) + dsigmau(M_,N_,:) * step,0.01),17);
+    sigmav(M_,N_,:) = min(max(sigmav(M_,N_,:) + dsigmav(M_,N_,:) * step,0.01),17);
     rou(M_,N_,:,:,:) = min(max(rou(M_,N_,:,:,:) + drou(M_,N_,:,:,:) * step, -corr_tor), corr_tor);
     pn(M_,N_,:) = min(max(pn(M_,N_,:) + dpn(M_,N_,:) * step, -corr_tor), corr_tor);
     
@@ -47,12 +47,12 @@ while 1
     % if it>1000, alpha = projsplx(alpha + dalpha * step * 1E-7);end
     if it>700, alpha = updateAlpha();end
     
-    if mod(it,500)==0
+    if mod(it,300)==0
         [alf,mu_u,sig_u,mu_v,sig_v] = gather(alpha,muu,sigmau,muv,sigmav);
         MAP = findMap_mex(alf, mu_u, sig_u, mu_v, sig_v);
         flow = repelem(MAP,4,4);
         flc = flowToColor(flow(5:end-4,5:end-4,:));
-        %imshow(flc);
+%         imshow(flc);
         imwrite(flc,[options.dir,'/',num2str(it),'.png']);
         aepe = mean(mean(sqrt(sum((GRDT(5:end-4,5:end-4,:) - flow(5:end-4,5:end-4,:)).^2,3))));AEPE(it)=aepe;
         if aepe < best_aepe, best_aepe = aepe;end
@@ -67,11 +67,14 @@ while 1
     it = it + 1;
     if it > its || ptdmu < tor, break; end
 end
-toc;
+
     function alf=updateAlpha()
-        smw = sum(w.^2);
-        w = w + dalpha.*(smw-w.^2).*w/smw^2 * step*1E-3;
-        alf = w.^2/sum(w.^2);
+%         smw = sum(w.^2);
+%         w = w + dalpha.*(smw-w.^2).*w/smw^2 * step*1E-7;
+%         alf = w.^2/sum(w.^2);
+        smw = sum(exp(w));
+        w = min(max(w + dalpha.*(smw-exp(w)).*exp(w)/smw^2*step*1E-7,-300),300);
+        alf = exp(w)./sum(exp(w));
     end
     function [da,du1,du2,do1,do2,dp,Ei] = node_grad_spectral(a,u1,u2,o1,o2,p,m,n)
         du1 = 0; du2 = 0; do1 = 0; do2 = 0; dp = 0;Ei=0;
@@ -178,8 +181,8 @@ toc;
     function ept = edge_pot(x1,x2)
         ept = -lambdas*sqrt(epsn+(x1-x2)^2);
     end
-mu=gather(cat(3,muu,muv));
-sigma=gather(cat(3,sigmau,sigmav));
+mu=gather(cat(4,muu,muv));
+sigma=gather(cat(4,sigmau,sigmav));
 alpha=gather(alpha);
 AEPE=gather(AEPE);
 Energy=gather(Energy);

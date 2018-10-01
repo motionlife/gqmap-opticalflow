@@ -3,17 +3,17 @@ function [mu, sigma, alpha, AEPE, Energy, logP] = gqmap_gpu_mixture(options,I1,I
 its = options.its;  K = options.K;  L=3;
 epsn = options.epsn;    lambdad = options.lambdad;  lambdas = options.lambdas;
 minu=options.minu;  maxu=options.maxu;  minv=options.minv;  maxv=options.maxv;
-I1=gpuArray(I1);K2 = K^2; sqrt2=sqrt(2); corr_tor=0.999;
+I1=gpuArray(I1);K2 = K^2; sqrt2=sqrt(2); corr_tor=1-1e-5;
 [X, W] = GaussHermite_2(K); X = gpuArray(X);  W = gpuArray(W);
 [XI,XJ] = meshgrid(X); [WI,WJ] = meshgrid(W);
 WIWJ = WI.*WJ; XIXJ = XI.*XJ; XI2aXJ2 = XI.^2 + XJ.^2;XI2mXJ2 = XI.^2 - XJ.^2;%XI2 = 2*XI.^2; XJ2 = 2*XJ.^2; 
 [M,N] = size(I1); rg=1; M_=(1+rg):(M-rg); N_=(1+rg):(N-rg);
-VV = gpuArray(getVV(I2));M2=M+2;logP = NaN(its,1,'gpuArray');
-% rfc=6;	rfc2=2^rfc;	I2_cont = interp2(I2,rfc,'cubic');	[MM, NN] = size(I2_cont);
+VV = gpuArray(getVV(I2));M2=M+2;
+% rfc=6;rfc2=2^rfc;	I2_cont = interp2(I2,rfc,'cubic');[MM, NN] = size(I2_cont);
 [ns,ms] = meshgrid(gpuArray(1:N),gpuArray(1:M));
 
 %initialize gpu data
-w = rand(1,1,L,'gpuArray'); alpha = w.^2./sum(w.^2);%alpha = rand(L,1,'gpuArray'); alpha = reshape(alpha./sum(alpha),1,1,L);
+w = rand(1,1,L,'gpuArray'); alpha = exp(w)./sum(exp(w));
 muu = minu+rand(M,N,L,'gpuArray')*(maxu-minu);
 muv = minv+rand(M,N,L,'gpuArray')*(maxv-minv);
 sigmau = rand(M,N,L,'gpuArray') + (maxu-minu);% make sure it's a large initialization
@@ -21,8 +21,8 @@ sigmav = rand(M,N,L,'gpuArray') + (maxv-minv);
 pn = zeros(M,N,L,'gpuArray');
 rou = zeros(M,N,L,2,2,'gpuArray');
 %for verbose info and profiling
-best_aepe=Inf; AEPE=ones(its,1,'gpuArray')*17;mark=1;
-Energy = zeros(its,1,'gpuArray');%logP = zeros(its,1,'gpuArray');
+best_aepe=Inf; AEPE=NaN(its,1,'gpuArray');mark=1;
+Energy = zeros(its,1,'gpuArray');logP = NaN(its,1,'gpuArray');
 it = 1;tor = 1e-4;tic;
 while 1
     step = 0.009/(1+it/5000);
@@ -41,8 +41,8 @@ while 1
     dsigmav = dsigmav + sum(dsigma1(:,:,:,:,2),4) + circshift(dsigma2(:,:,:,1,2),1) + circshift(dsigma2(:,:,:,2,2),1,2);
     muu(M_,N_,:) = min(max(muu(M_,N_,:) + dmuu(M_,N_,:) * step, minu), maxu);
     muv(M_,N_,:) = min(max(muv(M_,N_,:) + dmuv(M_,N_,:) * step, minv), maxv);
-    sigmau(M_,N_,:) = min(max(sigmau(M_,N_,:) + dsigmau(M_,N_,:) * step,0.01),23);
-    sigmav(M_,N_,:) = min(max(sigmav(M_,N_,:) + dsigmav(M_,N_,:) * step,0.01),23);
+    sigmau(M_,N_,:) = min(max(sigmau(M_,N_,:) + dsigmau(M_,N_,:) * step,0.01),17);
+    sigmav(M_,N_,:) = min(max(sigmav(M_,N_,:) + dsigmav(M_,N_,:) * step,0.01),17);
     rou(M_,N_,:,:,:) = min(max(rou(M_,N_,:,:,:) + drou(M_,N_,:,:,:) * step, -corr_tor), corr_tor);
     pn(M_,N_,:) = min(max(pn(M_,N_,:) + dpn(M_,N_,:) * step, -corr_tor), corr_tor);
     
@@ -51,7 +51,7 @@ while 1
     %if it>500, alpha = projsplx(alpha + dalpha * step * 1E-7);end
     if it>700, alpha = updateAlpha();end
 
-    if mod(it,1000)==0 || it==1
+    if mod(it,300)==0 || it==1
         [alf,mu_u,sig_u,mu_v,sig_v] = gather(alpha,muu,sigmau, muv,sigmav);
         flow = findMap_mex(alf, mu_u, sig_u, mu_v, sig_v);
         flc = flowToColor(flow);
@@ -71,9 +71,12 @@ while 1
 end
 toc;
     function alf=updateAlpha()
-        smw = sum(w.^2);
-        w = w + dalpha.*(smw-w.^2).*w/smw^2 * step *1E-3;
-        alf = w.^2/sum(w.^2);
+%         smw = sum(w.^2);
+%         w = w + dalpha.*(smw-w.^2).*w/smw^2 * step*1E-7;
+%         alf = w.^2/sum(w.^2);
+        smw = sum(exp(w));
+        w = min(max(w + dalpha.*(smw-exp(w)).*exp(w)/smw^2*step*1E-7,-300),300);
+        alf = exp(w)./sum(exp(w));
     end
     function [da,du1,du2,do1,do2,dp,Ei] = node_grad_spectral(a,u1,u2,o1,o2,p,m,n)
         du1 = 0; du2 = 0; do1 = 0; do2 = 0; dp = 0; Ei = 0;
@@ -167,8 +170,8 @@ toc;
     function ept = edge_pot(x1,x2)
         ept = -lambdas*sqrt(epsn+(x1-x2)^2);
     end
-mu=gather(cat(3,muu,muv));
-sigma=gather(cat(3,sigmau,sigmav));
+mu=gather(cat(4,muu,muv));
+sigma=gather(cat(4,sigmau,sigmav));
 alpha=gather(alpha);
 AEPE=gather(AEPE);
 Energy=gather(Energy);

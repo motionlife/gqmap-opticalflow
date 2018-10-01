@@ -15,25 +15,24 @@ for ti=1:numel(testdata)
         flowToColor(readFlowFile(['middlebury/',testdata{ti},'/flow10.flo']));
     gdt_img = imresize(gdt_img,scale);
     
-    options.K = 17;
+    options.K = 9;
     options.its = 30000;
     options.epsn = 0.001^2;
     options.lambdas = 16;
     options.lambdad = 1;
-    options.temperature = 7;
+    options.temperature = 8;
     options.L = 3;
-    options.drate=1-1E-3;
+    options.drate=1;%1-1E-3;
 
-    mkdir(options.dir);
     if entropy==true
-        options.dir = ['../Results4_mix_entropy/',testdata{ti}];
+        options.dir = ['../Results4_mix_entropy/',testdata{ti},'_',num2str(preprocessed)];mkdir(options.dir);
         [mu, sigma, alpha, AEPE, Energy,logP] = gqmap_gpuSuper_mix_entropy(options,img1,img2,trueFlow);
         save([options.dir,'/',testdata{ti},'.mat'],'options','AEPE','trueFlow','unknownIdx','mu','sigma','alpha','Energy','logP');
     else
-        options.dir = ['../Results4_mix/',testdata{ti}];
+        options.dir = ['../Results4_mix/',testdata{ti},'_',num2str(preprocessed)];mkdir(options.dir);
         [mu, sigma, alpha, AEPE, Energy,logP] = gqmap_gpuSuper_mix(options,img1,img2,trueFlow);
         save([options.dir,'/',testdata{ti},'.mat'],'options','AEPE','trueFlow','unknownIdx','mu','sigma','alpha','Energy','logP');
     end
     
 end
-% system('shutdown /s /t 60');
+system('shutdown /s /t 60');
