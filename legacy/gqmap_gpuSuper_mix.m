@@ -56,7 +56,7 @@ while 1
         end
         flow = repelem(map,4,4);
         flc = flowToColor_mex(flow(5:end-4,5:end-4,:));
-%         imshow(flc);
+        %imshow(flc);
         imwrite(flc,[options.dir,'/',num2str(it),'.png']);
         aepe = mean(mean(sqrt(sum((GRDT(5:end-4,5:end-4,:) - flow(5:end-4,5:end-4,:)).^2,3))));AEPE(it)=aepe;
         if aepe < best_aepe, best_aepe = aepe;end

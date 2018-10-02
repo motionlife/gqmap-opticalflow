@@ -1,9 +1,10 @@
-function [mu, sigma, alpha, AEPE,Energy,logP] = gqmap_gpuSuper_mix_entropy(options,I1,I2,GRDT)
+function [mu, sigma, alpha, AEPE,Energy,logP] = gqmap_gpuSuper_mix_entropy(options,I1,I2)
 %GQMAP perform MAP inference using Gaussian Quadruatre with gradient ascent method
+tflow = options.trueFlow;  unidx=repmat(options.unknownIdx,1,1,2);
 its = options.its; K = options.K; L=options.L; T=options.temperature; drate = options.drate;
 epsn = options.epsn; lambdad = options.lambdad; lambdas=options.lambdas;
-minu=options.minu;maxu=options.maxu;minv=options.minv;maxv=options.maxv;
-I1=gpuArray(I1); K2 = K^2; sqrt2=sqrt(2); const1=1+log(2*pi); corr_tor=1-1e-5;
+minu=options.minu;  maxu=options.maxu;  minv=options.minv;  maxv=options.maxv;
+I1=gpuArray(I1); K2 = K^2; sqrt2=sqrt(2); const1=1+log(2*pi); corr_tor=0.999;
 [X, W] = GaussHermite_2(K); X = gpuArray(X);  W = gpuArray(W);
 [XI,XJ] = meshgrid(X); [WI,WJ] = meshgrid(W);
 WIWJ = WI.*WJ; XIXJ = XI.*XJ; XI2aXJ2 = XI.^2 + XJ.^2;XI2mXJ2 = XI.^2 - XJ.^2;
@@ -13,7 +14,7 @@ VV = gpuArray(getVV(I2)); M2 = Mo+2;
 [ns,ms] = meshgrid(gpuArray(1:N),gpuArray(1:M));
 best_aepe=Inf; AEPE=NaN(its,1,'gpuArray'); logP = NaN(its,1,'gpuArray'); Energy = zeros(its,1,'gpuArray');mark=1;
 %initialize gpu data
-w = rand(1,1,L,'gpuArray'); alpha = exp(w)./sum(exp(w));
+w = rand(1,1,L,'gpuArray'); alpha = w.^2/sum(w.^2);
 muu = minu+rand(M,N,L,'gpuArray')*(maxu-minu);
 muv = minv+rand(M,N,L,'gpuArray')*(maxv-minv);
 sigmau = rand(M,N,L,'gpuArray') + (maxu-minu);% make sure it's a large initialization
@@ -22,7 +23,7 @@ pn = zeros(M,N,L,'gpuArray');
 rou = zeros(M,N,L,2,2,'gpuArray');
 it = 1; tor = 1e-4;
 while 1
-    step = 0.0016/(1+it/2000);%0.07/(1+it/5000);
+    step = 0.002/(1+it/2000);
     %dim_1:(M)--dim_2:(N)--dim_3:L(mixture components)
     [dan,dmuu,dmuv,dsigmau,dsigmav,dpn,nEnergy] = arrayfun(@node_grad_spectral,repmat(alpha,M,N,1),muu,muv,sigmau,sigmav,pn,ms,ns);
     %dim_1:(M)--dim_2:(N)--dim_3:L(mixture components)--dim_4:(vertical/horizontal edges)--dim_5:(u/v edges)
@@ -45,20 +46,21 @@ while 1
     
     Energy(it) = sum(sum(sum(nEnergy(M_,N_,:)))) + sum(sum(sum(sum(sum(eEnergy(M_,N_,:,:,:))))));
     % if it>1000, alpha = projsplx(alpha + dalpha * step * 1E-7);end
-    if it>700, alpha = updateAlpha();end
+    if it>1000 && L~=1, alpha = updateAlpha();end
     
-    if mod(it,300)==0
+    if mod(it,200)==0
         [alf,mu_u,sig_u,mu_v,sig_v] = gather(alpha,muu,sigmau,muv,sigmav);
-        if length(alpha)==1
+        if L==1
             map = cat(3,mu_u,mu_v);
         else
             map = findMap_mex(alf, mu_u, sig_u, mu_v, sig_v);
         end
         flow = repelem(map,4,4);
         flc = flowToColor_mex(flow(5:end-4,5:end-4,:));
-        %imshow(flc);
-        imwrite(flc,[options.dir,'/',num2str(it),'.png']);
-        aepe = mean(mean(sqrt(sum((GRDT(5:end-4,5:end-4,:) - flow(5:end-4,5:end-4,:)).^2,3))));AEPE(it)=aepe;
+        imshow(flc);
+%       imwrite(flc,[options.dir,'/',num2str(it),'.png']);
+        flow(unidx)=0;
+        aepe = mean(mean(sqrt(sum((tflow(5:end-4,5:end-4,:) - flow(5:end-4,5:end-4,:)).^2,3))));AEPE(it)=aepe;
         if aepe < best_aepe, best_aepe = aepe;end
         logP(it) = profile_logP(gpuArray(map));
         mark = it;
@@ -73,12 +75,12 @@ while 1
 end
 
     function alf=updateAlpha()
-%         smw = sum(w.^2);
-%         w = w + dalpha.*(smw-w.^2).*w/smw^2 * step*1E-7;
-%         alf = w.^2/sum(w.^2);
-        smw = sum(exp(w));
-        w = min(max(w + dalpha.*(smw-exp(w)).*exp(w)/smw^2*step*1E-5,-300),300);
-        alf = exp(w)./sum(exp(w));
+        smw = sum(w.^2);
+        w = w + dalpha.*(smw-w.^2).*w/smw^2 * step*1E-7;
+        alf = w.^2/sum(w.^2);
+%         smw = sum(exp(w));
+%         w = min(max(w + dalpha.*(smw-exp(w)).*exp(w)/smw^2*step*1E-5,-300),300);
+%         alf = exp(w)./sum(exp(w));
     end
 
     function [da,du1,du2,do1,do2,dp,Ei] = node_grad_spectral(a,u1,u2,o1,o2,p,m,n)
@@ -200,7 +202,6 @@ AEPE=gather(AEPE);
 Energy=gather(Energy);
 logP=gather(logP);
 end
-
 function VV = getVV(V)
     [M,N]=size(V);%M=388;N=584
     M2 = M+2;%M2=390;
@@ -219,3 +220,7 @@ function VV = getVV(V)
         VV(M2N2-M2+i) = (3.0*VV(M2N2-M2*2+i) - 3.0 * VV(M2N2-M2*3+i)) + VV(M2N2-M2*4+i);
     end
 end
+% function [minu,maxu] = getRange(u0,u1,pct)
+%     if u0<0,minu=u0*(1+pct);else,minu=u0*(1-pct);end
+%     if u1>0,maxu=u1*(1+pct);else,maxu=u1*(1-pct);end
+% end

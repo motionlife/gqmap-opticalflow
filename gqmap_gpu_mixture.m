@@ -55,7 +55,7 @@ while 1
         [alf,mu_u,sig_u,mu_v,sig_v] = gather(alpha,muu,sigmau, muv,sigmav);
         flow = findMap_mex(alf, mu_u, sig_u, mu_v, sig_v);
         flc = flowToColor_mex(flow);
-%         imshow(flc);
+        %imshow(flc);
         imwrite(flc,[options.dir,'/',num2str(it),'.png']);
         aepe = mean(mean(sqrt(sum((GRDT(M_,N_,:) - flow(M_,N_,:)).^2,3))));AEPE(it)=aepe;
         if aepe < best_aepe, best_aepe = aepe;end
