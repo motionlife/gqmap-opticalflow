@@ -17,13 +17,13 @@ best_aepe=Inf; AEPE=NaN(its,1,'gpuArray'); logP = NaN(its,1,'gpuArray'); Energy 
 w = rand(1,1,L,'gpuArray'); alpha = exp(w)./sum(exp(w));
 muu = minu+rand(M,N,L,'gpuArray')*(maxu-minu);
 muv = minv+rand(M,N,L,'gpuArray')*(maxv-minv);
-sigmau = rand(M,N,L,'gpuArray') + (maxu-minu)/4;%better if it's a large initialization
-sigmav = rand(M,N,L,'gpuArray') + (maxv-minv)/4;%0.5 yeilds good reult try 0.25
+sigmau = rand(M,N,L,'gpuArray') + (maxu-minu);%better if it's a large initialization
+sigmav = rand(M,N,L,'gpuArray') + (maxv-minv);
 pn = zeros(M,N,L,'gpuArray');
 rou = zeros(M,N,L,2,2,'gpuArray');
 it = 1; tor = 1e-4;
 while 1
-    step = 0.0016/(1+it/4000);
+    step = 0.001/(1+it/4000);
     %dim_1:(M)--dim_2:(N)--dim_3:L(mixture components)
     [dan,dmuu,dmuv,dsigmau,dsigmav,dpn,nEnergy] = arrayfun(@node_grad_spectral,repmat(alpha,M,N,1),muu,muv,sigmau,sigmav,pn,ms,ns);
     %dim_1:(M)--dim_2:(N)--dim_3:L(mixture components)--dim_4:(vertical/horizontal edges)--dim_5:(u/v edges)
@@ -39,8 +39,8 @@ while 1
     dsigmav = dsigmav + sum(dsigma1(:,:,:,:,2),4) + circshift(dsigma2(:,:,:,1,2),1) + circshift(dsigma2(:,:,:,2,2),1,2);
     muu(M_,N_,:) = min(max(muu(M_,N_,:) + dmuu(M_,N_,:) * step, minu), maxu);
     muv(M_,N_,:) = min(max(muv(M_,N_,:) + dmuv(M_,N_,:) * step, minv), maxv);
-    sigmau(M_,N_,:) = min(max(sigmau(M_,N_,:) + dsigmau(M_,N_,:) * step,0.01),17);
-    sigmav(M_,N_,:) = min(max(sigmav(M_,N_,:) + dsigmav(M_,N_,:) * step,0.01),17);
+    sigmau(M_,N_,:) = min(max(sigmau(M_,N_,:) + dsigmau(M_,N_,:) * step,0.01),25);
+    sigmav(M_,N_,:) = min(max(sigmav(M_,N_,:) + dsigmav(M_,N_,:) * step,0.01),25);
     rou(M_,N_,:,:,:) = min(max(rou(M_,N_,:,:,:) + drou(M_,N_,:,:,:) * step, -corr_tor), corr_tor);
     pn(M_,N_,:) = min(max(pn(M_,N_,:) + dpn(M_,N_,:) * step, -corr_tor), corr_tor);
     
@@ -53,7 +53,7 @@ while 1
         if L==1
             map = cat(3,mu_u,mu_v);
         else
-            map = findMap5_mex(alf, mu_u, sig_u, mu_v, sig_v);
+            map = findMap_mex(alf, mu_u, sig_u, mu_v, sig_v);
         end
         flow = repelem(map,4,4);
         flc = flowToColor_mex(flow(5:end-4,5:end-4,:));
@@ -80,9 +80,10 @@ end
 %         smw = sum(w.^2);
 %         w = w + dalpha.*(smw-w.^2).*w/smw^2 * step*1E-5;
 %         alf = w.^2/sum(w.^2);
-        smw = sum(exp(w));
-        w = min(max(w + dalpha.*(smw-exp(w)).*exp(w)/smw^2*step*1E-5,-300),300);
+        dw = alpha.*(dalpha - sum(dalpha.*alpha));
+        w = min(max(w + dw*step,-300),300);
         alf = exp(w)./sum(exp(w));
+        % exp((w - max(w)) - log(sum(exp(w - max(w)))))
     end
 
     function [da,du1,du2,do1,do2,dp,Ei] = node_grad_spectral(a,u1,u2,o1,o2,p,m,n)

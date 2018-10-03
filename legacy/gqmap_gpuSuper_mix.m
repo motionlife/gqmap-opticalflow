@@ -49,7 +49,7 @@ while 1
     
     if mod(it,300)==0
         [alf,mu_u,sig_u,mu_v,sig_v] = gather(alpha,muu,sigmau,muv,sigmav);
-        if length(alpha)==1
+        if L==1
             map = cat(3,mu_u,mu_v);
         else
             map = findMap_mex(alf, mu_u, sig_u, mu_v, sig_v);
