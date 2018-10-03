@@ -53,7 +53,7 @@ while 1
         if L==1
             map = cat(3,mu_u,mu_v);
         else
-            map = findMap_mex(alf, mu_u, sig_u, mu_v, sig_v);
+            map = get_map_mex(alf, mu_u, sig_u, mu_v, sig_v);
         end
         flow = repelem(map,4,4);
         flc = flowToColor_mex(flow(5:end-4,5:end-4,:));
@@ -71,7 +71,7 @@ while 1
     fprintf('[%3d], \x0394(mu) = %e, \x0394(sigma) = %e, Energy = %e, AEPE=%e,logP=%e \n', ...
         it, ptdmu, ptdsigma, Energy(it), best_aepe, logP(mark));
     
-    if mod(it,1000)==0,T = max(T*drate,0.01);end
+    if mod(it,500)==0,T = max(T*drate,0.001);end
     it = it + 1;
     if it > its || ptdmu < tor, break; end
 end
@@ -112,15 +112,15 @@ end
             do2 = do2 + fval*(XI2aXJ2(k) - 1 - XI2mXJ2(k)/sqrtpr);
             Ei = Ei + fval;
         end
-        da = Ei/pi;
         du1 = a*du1*o1pr/pi;
         du2 = a*du2*o2pr/pi;
         %Considering entropy with Temperature T--------------------------------
         %Node entropy part of each mixture component: a*(1-d)*H(b)) [Note:this is not the best approximation but simplest]
-        Ei = a*(da - 3*T*(const1+log(sqrtpr*o1*o2)));
+        da = Ei/pi - 3*T*(const1+log(sqrtpr*o1*o2));
         do1 = a*(do1/pi - 3*T)/o1;
         do2 = a*(do2/pi - 3*T)/o2;
         dp = a*(dp/pi + 3*T*p)/pr;
+        Ei = a*da;
     end
 
     function [da,du1,du2,do1,do2,dp,Ei] = edge_grad_spectral(a,u1,u2,o1,o2,p)
@@ -140,15 +140,15 @@ end
             do2 = do2 + fval*(XI2aXJ2(k) - 1 - XI2mXJ2(k)/sqrtpr);
             Ei = Ei + fval;
         end
-        da = Ei/pi;
         du1 = a*du1*o1pr/pi;
         du2 = a*du2*o2pr/pi;
         %Considering entropy with Temperature T--------------------------------
         %Node entropy part of each mixture component: a*H(b)) [Note:this is not the best approximation but simplest]
-        Ei = a*(da + T*(const1+log(sqrtpr*o1*o2)));
+        da = Ei/pi + T*(const1+log(sqrtpr*o1*o2));
         do1 = a*(do1/pi + T)/o1;
         do2 = a*(do2/pi + T)/o2;
         dp = a*(dp/pi - T*p)/pr;
+        Ei = a*da;
     end
 
     function lp = profile_logP(uv)

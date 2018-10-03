@@ -1,6 +1,6 @@
 clear;
 %read images from dataset and convert greyscale
-testdata = {'Venus'};%{'Hydrangea','Venus','Urban2','Urban3','Grove3'};%'RubberWhale','Dimetrodon','Grove2',
+testdata = {'Venus','Hydrangea','Urban2','Urban3','Grove3'};%'RubberWhale','Dimetrodon','Grove2',
 scale = 1; preprocessed=false;
 for ti=1:numel(testdata)
     name = testdata{ti};
@@ -22,13 +22,13 @@ for ti=1:numel(testdata)
     options.lambdas = 16;
     options.lambdad = 1;
     options.L = 3;                  %number of components of mixture model
-    options.temperature = 0;        %initial temperature weight
+    options.temperature = 0.2;        %initial temperature weight
     options.drate=0.75;                %temperature changing rate
     
     if options.temperature ~=0
-        options.dir = ['../Results7_mix_entropy/',name,'_',num2str(preprocessed)];
+        options.dir = ['../Results8_mix_entropy/',name,'_',num2str(preprocessed)];
     else
-        options.dir = ['../Results7_mix/',name,'_',num2str(preprocessed)];
+        options.dir = ['../Results8_mix/',name,'_',num2str(preprocessed)];
     end
     mkdir(options.dir);
     [mu, sigma, alpha, AEPE, Energy,logP] = gqmap_gpuSuper_mix_entropy(options,img1,img2);
