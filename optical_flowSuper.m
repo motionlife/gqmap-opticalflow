@@ -16,7 +16,7 @@ for ti=1:numel(testdata)
         flowToColor_mex(readFlowFile(['middlebury/',name,'/flow10.flo']));
     gdt_img = imresize(gdt_img,scale);
     
-    options.K = 7;
+    options.K = 11;
     options.its = 30000;
     options.epsn = 0.001^2;
     options.lambdas = 16;

@@ -48,7 +48,7 @@ while 1
 %     if it>200, alpha = projsplx(alpha + dalpha * step * 1E-6);end
     if it>500 && L~=1, alpha = updateAlpha();end
     
-    if mod(it,300)==0
+    if mod(it,300)==0 || it==1
         [alf,mu_u,sig_u,mu_v,sig_v] = gather(alpha,muu,sigmau,muv,sigmav);
         if L==1
             map = cat(3,mu_u,mu_v);
@@ -65,12 +65,10 @@ while 1
         logP(it) = profile_logP(gpuArray(map));
         mark = it;
     end
-    
     ptdmu=abs(dmuu(M_,N_,:)); ptdsigma=abs(dsigmau(M_,N_,:));
     ptdmu = mean(ptdmu(:)); ptdsigma=mean(ptdsigma(:));
     fprintf('[%3d], \x0394(mu) = %e, \x0394(sigma) = %e, Energy = %e, AEPE=%e,logP=%e \n', ...
         it, ptdmu, ptdsigma, Energy(it), best_aepe, logP(mark));
-    
     if mod(it,500)==0,T = max(T*drate,0.001);end
     it = it + 1;
     if it > its || ptdmu < tor, break; end
