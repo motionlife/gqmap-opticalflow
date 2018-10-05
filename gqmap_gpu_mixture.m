@@ -24,7 +24,7 @@ pn = zeros(M,N,L,'gpuArray');
 rou = zeros(M,N,L,2,2,'gpuArray');
 it = 1;tor = 1e-4;tic;
 while 1
-    step = 0.009/(1+it/5000);
+    step = 0.1/(1+it/8000);
     %dim_1:(M)--dim_2:(N)--dim_3:L(mixture components)
     [dan,dmuu,dmuv,dsigmau,dsigmav,dpn,nEnergy] = arrayfun(@node_grad_spectral,repmat(alpha,M,N,1),muu,muv,sigmau,sigmav,pn,ms,ns);
     %dim_1:(M)--dim_2:(N)--dim_3:L(mixture components)--dim_4:(vertical/horizontal edges)--dim_5:(u/v edges)
@@ -47,7 +47,7 @@ while 1
     
     Energy(it) = sum(sum(sum(nEnergy(M_,N_,:)))) + sum(sum(sum(sum(sum(eEnergy(M_,N_,:,:,:))))));
     %if it>500, alpha = projsplx(alpha + dalpha * step * 1E-7);end
-    if it>500 && L~=1,, alpha = updateAlpha();end
+    if it>500 && L~=1, alpha = updateAlpha();end
 
     if mod(it,300)==0 || it==1
         [alf,mu_u,sig_u,mu_v,sig_v] = gather(alpha,muu,sigmau, muv,sigmav);
@@ -70,7 +70,7 @@ while 1
     ptdmu = mean(ptdmu(:)); ptdsigma=mean(ptdsigma(:));
     fprintf('[%3d], \x0394(mu) = %e, \x0394(sigma) = %e, Energy = %e, AEPE=%e,logP=%e \n', ...
         it, ptdmu, ptdsigma, Energy(it), best_aepe,logP(mark));
-    if mod(it,500)==0,T = max(T*drate,0.001);end
+%     if mod(it,500)==0,T = max(T*drate,0.0001);end
     it = it + 1;
     if it > its || ptdmu < tor, break; end
 end
@@ -80,7 +80,7 @@ toc;
 %         w = w + dalpha.*(smw-w.^2).*w/smw^2 * step*1E-5;
 %         alf = w.^2/sum(w.^2);
     dw = alpha.*(dalpha - sum(dalpha.*alpha));
-    w = min(max(w + dw*step,-300),300);
+    w = min(max(w + dw*step*1E-7,-300),300);
     alf = exp(w)./sum(exp(w));
     % exp((w - max(w)) - log(sum(exp(w - max(w)))))
     end

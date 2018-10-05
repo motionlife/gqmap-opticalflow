@@ -1,6 +1,6 @@
 clear;
 %read images from dataset and convert greyscale
-testdata = {'RubberWhale','Dimetrodon','Hydrangea','Venus','Grove2','Grove3','Urban2','Urban3'};
+testdata = {'Teddy','Cones'};%'RubberWhale','Dimetrodon','Hydrangea','Venus','Grove2','Grove3',
 scale = 1;
 for ti=1:numel(testdata)
     name = testdata{ti};
@@ -9,23 +9,22 @@ for ti=1:numel(testdata)
     img2 = imresize(imread(['middlebury/',name,'/frame11.png']),scale);
     img_1 = double(rgb2gray(img1));
     img_2 = double(rgb2gray(img2));
-    [gdt_img,options.trueFlow,options.minu, options.maxu, options.minv, options.maxv,unknownIdx] = ...
+    [gdt_img,options.trueFlow,options.minu, options.maxu, options.minv, options.maxv,options.unknownIdx] = ...
     flowToColor_mex(readFlowFile(['middlebury/',name,'/flow10.flo']));
     gdt_img = imresize(gdt_img,scale);
 
-    options.K = 11;
+    options.K = 9;
     options.its =30000;
     options.epsn = 0.001^2;
     options.lambdas = 5;
     options.lambdad = 1;
-    options.dir = ['../Results9_full/',name];
-    options.L = 10;                  %number of components of mixture model
-    options.temperature = 0.2;        %initial temperature weight
-    options.drate=0.75;                %temperature changing rate
+    options.L = 3;                  %number of components of mixture model
+    options.temperature = 0;        %initial temperature weight
+    options.drate=0.5;                %temperature changing rate
     options.dir = ['../Results8_full_entropy/',name,'_',num2str(options.temperature ~=0)];
-
+    mkdir(options.dir);
     % [mu, sigma, alpha, AEPE,Energy] = gqmap_gpuV2(options,img_1,img_2,trueFlow);
     [mu, sigma, alpha, AEPE, Energy,logP] = gqmap_gpu_mixture(options,img_1,img_2);
-    save([options.dir,'/',name,'.mat'],'options','AEPE','trueFlow','unknownIdx','mu', 'sigma','alpha','Energy','logP');
+    save([options.dir,'/',name,'.mat'],'options','AEPE','mu', 'sigma','alpha','Energy','logP');
 
 end
